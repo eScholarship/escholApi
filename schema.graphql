@@ -1,0 +1,156 @@
+# Lint this with the following command (after running setup.sh):
+# `node_modules/.bin/graphql-schema-linter schema.graphql`
+
+"The eScholarship API"
+type Query {
+  "Get item's info given its identifier"              item(id: ID!, scheme: ItemIdScheme = ARK): Item
+  "Query a list of all items"                         items(publishedAfter: Date, publishedBefore: Date,
+                                                            addedAfter: Date, addedBefore: Date,
+                                                            tags: [String], order: ItemOrder = ADDED_DESC
+                                                            first: Int = 100, more: Cursor): Items!
+  "Get a unit given its identifier"                   unit(id: ID!): Unit
+  "Get contributor's info given their id"             contributor(id: ID!): Contributor
+  "Query a list of all contributors"                  contributors(name: String, email: String, role: Role,
+                                                                   fuzzy: Boolean = true): Contributors
+}
+
+"Opaque cursor used for paging through long lists"    scalar Cursor
+"A date, formatted as ISO-8601, e.g. 2017-12-31"      scalar Date
+
+"A (possibly very long) list of items, with paging capability"
+type Items {
+  "Approximate total items on all pages"              total: Int!
+  "Array of the items on this page"                   nodes: [Item]!
+  "Opaque cursor string for next page"                more: Cursor
+}
+
+"A single work or publication within eScholarship"
+type Item {
+  "The eschol ARK for this item: 'ark:/13030/qt...'"  id: ID!
+  "Title of the item (w/ embedded HTML tags)"         title: String!
+  "Publication status; usually PUBLISHED"             status: ItemStatus!
+  "Publication type; usually ARTICLE"                 type: ItemType!
+  "Date the item was published"                       published: Date!
+  "Date the item was added to eScholarship"           added: Date!
+  "Permanent link to the item on escholarship.org"    permaLink: String!
+  "Content MIME type (e.g application/pdf)"           contentType: String
+  "Download link for PDF/content file (if applic.)"   downloadLink: String
+  "All authors, editors, etc. (can be long)"          contributors(name: String, email: String, role: Role,
+                                                                   fuzzy: Boolean = true): Contributors
+  "The series/unit(s) associated with this item"      units: [Unit]
+  "Embargo expiration date (if status=EMBARGOED)"     embargoExpires: Date
+  "Licence (public, or cc-by-nd, etc.)"               license: String!
+  "Supplemental material (if any)"                    suppFiles: [SuppFile]
+  "Local identifiers, e.g. PubMed ID, LBNL, etc."     localIDs: [LocalID]
+  "Unified disciplines, keywords, and subjects"       tags: [String]
+}
+
+"A campus, department, series, or other organized unit within eScholarship"
+type Unit {
+  "Unit identifier, e.g. 'lbnl_rw'"                   id: ID!
+  "Human-readable name of the unit"                   name: String!
+  "Type of unit, e.g. ORU, SERIES, JOURNAL"           type: UnitType!
+  "Hierarchical parent(s) (i.e. owning units)"        parents: [Unit]
+  "Hierarchical children (i.e. sub-units)"            children: [Unit]
+  "Query items in the unit (incl. children)"          items(publishedAfter: Date, publishedBefore: Date,
+                                                            addedAfter: Date, addedBefore: Date,
+                                                            tags: [String], order: ItemOrder = ADDED_DESC,
+                                                            first: Int = 100, more: Cursor): Items!
+  "Query contributors to the unit's items"            contributors(name: String, email: String, role: Role,
+                                                                   fuzzy: Boolean = true): Contributors
+}
+
+"Type of unit within eScholarship"
+enum UnitType {
+  "A campus within the UC system"                     CAMPUS
+  "A journal hosted by eScholarship"                  JOURNAL
+  "A series of monographs"                            MONOGRAPH_SERIES
+  "A general Organized Research Unit; often a dept."  ORU
+  "eScholarship itself"                               ROOT
+  "Series of seminars"                                SEMINAR_SERIES
+  "General series of publications"                    SERIES
+}
+
+"A (possibly very long) list of contributors, with paging capability"
+type Contributors {
+  "Approximate total contributors on all pages"       total: Int!
+  "Array of the contributors on this page"            nodes: [Contributor]!
+  "Role of each contributor on this page (if any)"    roles: [Role]
+  "Opaque cursor string for next page"                more: Cursor
+}
+
+"A single author, editor, etc."
+type Contributor {
+  "Identifier within eschol: 'ark:/99166/p3...'"      id: ID
+  "Name(s) used by this contributor"                  names: [ContributorName]
+  "Items to which this contributor has contributed"   items(publishedAfter: Date, publishedBefore: Date,
+                                                            addedAfter: Date, addedBefore: Date,
+                                                            tags: [String], order: ItemOrder = ADDED_DESC,
+                                                            first: Int = 100, more: Cursor): Items!
+}
+
+"One name used by an author, editor, etc."
+type ContributorName {
+  "Combined form of the fields; e.g. 'lname, fname'"  name: String
+  "First name / given name"                           fname: String
+  "Last name / surname"                               lname: String
+  "Middle name"                                       mname: String
+  "Suffix (e.g. Ph.D)"                                suffix: String
+  "Institutional affiliation"                         institution: String
+  "Instead of lname/fname if contrib is group/corp"   organization: String
+}
+
+"The role in which a contributor made their contribution to an item"
+enum Role {
+  "Advised on the work (e.g. on a thesis)"            ADVISOR
+  "Authored the work"                                 AUTHOR
+  "Edited the work"                                   EDITOR
+}
+
+"Identifier scheme used for querying items; ARK is most common"
+enum ItemIdScheme {
+  "eSchol (ark:/13030/qt...) or Merritt ARK"          ARK
+  "A DOI, with or w/o http://dx.doi.org prefix"       DOI
+  "LBNL-internal publication ID"                      LBNL_PUB_ID
+  "Pub ID on oapolicy.universityofcalifornia.edu"     OA_PUB_ID
+  "All other identifiers"                             OTHER
+}
+
+"Ordering for item list results"
+enum ItemOrder {
+  "Date added to eScholarship, oldest to newest"      ADDED_ASC
+  "Date added to eScholarship, newest to oldest"      ADDED_DESC
+  "Date published, oldest to newest"                  PUBLISHED_ASC
+  "Date published, newest to oldest"                  PUBLISHED_DESC
+}
+
+"Publication status of an Item (usually PUBLISHED)"
+enum ItemStatus {
+  "Currently under embargo (omitted from queries)"    EMBARGOED
+  "Normal published item"                             PUBLISHED
+  "Item was withdrawn (omitted from queries)"         WITHDRAWN
+}
+
+"Publication type of an Item (often ARTICLE)"
+enum ItemType {
+  "Normal article, e.g. a journal article"            ARTICLE
+  "Chapter within a book/monograph"                   CHAPTER
+  "Electronic thesis/dissertation"                    ETD
+  "A book / monograph"                                MONOGRAPH
+  "Non-textual work"                                  NON_TEXTUAL
+}
+
+"Local item identifiers, e.g. PubMed ID, LBNL ID, etc."
+type LocalID {
+  "The identifier string"                             id: ID!
+  "The scheme under which it was minted"              scheme: ItemIdScheme!
+  "If scheme is OTHER, this will be more specific"    subScheme: String
+}
+
+"A supplemental file associated with an item"
+type SuppFile {
+  "Size in bytes"                                     size: Int!
+  "Content MIME type of file"                         contentType: String!
+  "Download location"                                 downloadLink: String!
+  "Original name of the file"                         filename: String
+}

@@ -1,0 +1,12 @@
+bin/
+.bundle/
+config/
+gems/
+logs/
+node_modules/
+tmp/
+.DS_Store
+*.log
+.mysqlProxySock
+*.out
+*.sql_log
