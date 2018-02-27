@@ -15,7 +15,7 @@ class SinatraGraphql < Sinatra::Base
     params =  JSON.parse(request.body.read)
     result = Schema.execute(
       params['query'],
-      variables: params['variables']
+      variables: params['variables'] ? JSON.parse(params['variables']) : nil
     )
     content_type :json
     result.to_json

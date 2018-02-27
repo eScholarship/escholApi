@@ -4,10 +4,8 @@
 "The eScholarship API"
 type Query {
   "Get item's info given its identifier"              item(id: ID!, scheme: ItemIdScheme = ARK): Item
-  "Query a list of all items"                         items(publishedAfter: Date, publishedBefore: Date,
-                                                            addedAfter: Date, addedBefore: Date,
-                                                            tags: [String], order: ItemOrder = ADDED_DESC
-                                                            first: Int = 100, more: Cursor): Items!
+  "Query a list of all items"                         items(order: ItemOrder = UPDATED_DESC, before: Date, after: Date,
+                                                            tags: [String], first: Int = 100, more: Cursor): Items!
   "Get a unit given its identifier"                   unit(id: ID!): Unit
   "Get contributor's info given their id"             contributor(id: ID!): Contributor
   "Query a list of all contributors"                  contributors(name: String, email: String, role: Role,
@@ -52,10 +50,8 @@ type Unit {
   "Type of unit, e.g. ORU, SERIES, JOURNAL"           type: UnitType!
   "Hierarchical parent(s) (i.e. owning units)"        parents: [Unit]
   "Hierarchical children (i.e. sub-units)"            children: [Unit]
-  "Query items in the unit (incl. children)"          items(publishedAfter: Date, publishedBefore: Date,
-                                                            addedAfter: Date, addedBefore: Date,
-                                                            tags: [String], order: ItemOrder = ADDED_DESC,
-                                                            first: Int = 100, more: Cursor): Items!
+  "Query items in the unit (incl. children)"          items(order: ItemOrder = UPDATED_DESC, before: Date, after: Date,
+                                                            tags: [String], first: Int = 100, more: Cursor): Items!
   "Query contributors to the unit's items"            contributors(name: String, email: String, role: Role,
                                                                    fuzzy: Boolean = true): Contributors
 }
@@ -83,10 +79,8 @@ type Contributors {
 type Contributor {
   "Identifier within eschol: 'ark:/99166/p3...'"      id: ID
   "Name(s) used by this contributor"                  names: [ContributorName]
-  "Items to which this contributor has contributed"   items(publishedAfter: Date, publishedBefore: Date,
-                                                            addedAfter: Date, addedBefore: Date,
-                                                            tags: [String], order: ItemOrder = ADDED_DESC,
-                                                            first: Int = 100, more: Cursor): Items!
+  "Items to which this contributor has contributed"   items(order: ItemOrder = UPDATED_DESC, before: Date, after: Date,
+                                                            tags: [String], first: Int = 100, more: Cursor): Items!
 }
 
 "One name used by an author, editor, etc."
@@ -116,12 +110,14 @@ enum ItemIdScheme {
   "All other identifiers"                             OTHER
 }
 
-"Ordering for item list results"
+"Ordering for item list results; default is typically UPDATED_DESC"
 enum ItemOrder {
   "Date added to eScholarship, oldest to newest"      ADDED_ASC
   "Date added to eScholarship, newest to oldest"      ADDED_DESC
   "Date published, oldest to newest"                  PUBLISHED_ASC
   "Date published, newest to oldest"                  PUBLISHED_DESC
+  "Date updated in eScholarship, oldest to newest"    UPDATED_ASC
+  "Date updated in eScholarship, newest to oldest"    UPDATED_DESC
 }
 
 "Publication status of an Item (usually PUBLISHED)"

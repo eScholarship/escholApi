@@ -1,9 +1,10 @@
 GEM
   remote: https://rubygems.org/
   specs:
+    Ascii85 (1.0.3)
     colorize (0.8.1)
     ffi (1.9.21)
-    graphql (0.18.11)
+    graphql (1.7.12)
     json (2.0.2)
     jwt (1.5.5)
     listen (3.1.5)
@@ -28,9 +29,7 @@ GEM
     rerun (0.13.0)
       listen (~> 3.0)
     ruby_dep (1.5.0)
-    sequel (4.38.0)
-    sequel-seed (1.0.0)
-      sequel (>= 4.0)
+    sequel (5.5.0)
     sinatra (1.4.7)
       rack (~> 1.5)
       rack-protection (~> 1.4)
@@ -43,6 +42,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
+  Ascii85
   colorize
   graphql
   json
@@ -55,7 +55,6 @@ DEPENDENCIES
   rake (~> 10.0)
   rerun
   sequel
-  sequel-seed
   sinatra (>= 1.4)
   socksify
   sqlite3
