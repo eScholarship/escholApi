@@ -4,8 +4,9 @@
 "The eScholarship API"
 type Query {
   "Get item's info given its identifier"              item(id: ID!, scheme: ItemIdScheme = ARK): Item
-  "Query a list of all items"                         items(order: ItemOrder = UPDATED_DESC, before: Date, after: Date,
-                                                            tags: [String], first: Int = 100, more: Cursor): Items!
+  "Query a list of all items"                         items(order: ItemOrder = UPDATED_DESC,
+                                                            before: DateTime, after: DateTime,
+                                                            tag: String, first: Int = 100, more: Cursor): Items!
   "Get a unit given its identifier"                   unit(id: ID!): Unit
   "Get contributor's info given their id"             contributor(id: ID!): Contributor
   "Query a list of all contributors"                  contributors(name: String, email: String, role: Role,
@@ -14,6 +15,7 @@ type Query {
 
 "Opaque cursor used for paging through long lists"    scalar Cursor
 "A date, formatted as ISO-8601, e.g. 2017-12-31"      scalar Date
+"A date and time, eg 2018-03-08T16:00:00-08:00"       scalar DateTime
 
 "A (possibly very long) list of items, with paging capability"
 type Items {
@@ -50,8 +52,9 @@ type Unit {
   "Type of unit, e.g. ORU, SERIES, JOURNAL"           type: UnitType!
   "Hierarchical parent(s) (i.e. owning units)"        parents: [Unit]
   "Hierarchical children (i.e. sub-units)"            children: [Unit]
-  "Query items in the unit (incl. children)"          items(order: ItemOrder = UPDATED_DESC, before: Date, after: Date,
-                                                            tags: [String], first: Int = 100, more: Cursor): Items!
+  "Query items in the unit (incl. children)"          items(order: ItemOrder = UPDATED_DESC,
+                                                            before: DateTime, after: DateTime,
+                                                            tag: String, first: Int = 100, more: Cursor): Items!
   "Query contributors to the unit's items"            contributors(name: String, email: String, role: Role,
                                                                    fuzzy: Boolean = true): Contributors
 }
@@ -79,8 +82,9 @@ type Contributors {
 type Contributor {
   "Identifier within eschol: 'ark:/99166/p3...'"      id: ID
   "Name(s) used by this contributor"                  names: [ContributorName]
-  "Items to which this contributor has contributed"   items(order: ItemOrder = UPDATED_DESC, before: Date, after: Date,
-                                                            tags: [String], first: Int = 100, more: Cursor): Items!
+  "Items to which this contributor has contributed"   items(order: ItemOrder = UPDATED_DESC,
+                                                            before: DateTime, after: DateTime,
+                                                            tags: String, first: Int = 100, more: Cursor): Items!
 }
 
 "One name used by an author, editor, etc."
