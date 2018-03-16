@@ -8,14 +8,14 @@ class SinatraGraphql < Sinatra::Base
 
   get '/' do
     token = ""
-    erb :graphiql, locals: {token: token}
+    erb :layout, locals: {token: token}
   end
 
   post '/graphql' do
     params =  JSON.parse(request.body.read)
     result = Schema.execute(
       params['query'],
-      variables: params['variables'] ? JSON.parse(params['variables']) : nil
+      variables: params['variables']
     )
     content_type :json
     result.to_json

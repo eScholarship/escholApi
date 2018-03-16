@@ -1,10 +1,11 @@
 require 'base64'
 require 'json'
+require 'unindent'
 
 ###################################################################################################
 DateType = GraphQL::ScalarType.define do
   name "Date"
-  description "A date in ISO-8601 format"
+  description %{A date in ISO-8601 format. Example: "2018-03-09"}
 
   coerce_input ->(value, ctx) do
     begin
@@ -20,7 +21,9 @@ end
 ###################################################################################################
 DateTimeType = GraphQL::ScalarType.define do
   name "DateTime"
-  description "A date and time in ISO-8601 format, including timezone"
+  description %{A date and time in ISO-8601 format, including timezone.
+                Example: "2018-03-09T15:02:42-08:00"
+                If you don't specify the time, midnight (server-local) will be used.}.unindent
 
   coerce_input ->(value, ctx) do
     begin
@@ -202,15 +205,22 @@ QueryType = GraphQL::ObjectType.define do
   end
 
   field :items, ItemsType, "Query a list of all items" do
-    argument :first, types.Int, default_value: 100, prepare: ->(val, ctx) {
-      (val.nil? || (val >= 1 && val <= 500)) or return GraphQL::ExecutionError.new("'first' must be in range 1..500")
-      return val
-    }
-    argument :more, types.String, description: "more"
-    argument :before, DateTimeType
-    argument :after, DateTimeType
-    argument :tag, types.String
-    argument :order, ItemOrderEnum, default_value: "ADDED_DESC"
+    argument :first, types.Int, default_value: 100,
+      description: "Number of results to return (values 1..500 are valid)",
+      prepare: ->(val, ctx) {
+        (val.nil? || (val >= 1 && val <= 500)) or return GraphQL::ExecutionError.new("'first' must be in range 1..500")
+        return val
+      }
+    argument :more, types.String, description: %{Opaque string obtained from the `more` field of a prior result,
+                                                 and used to fetch the next set of nodes.
+                                                 Do not specify any other arguments with this one; the string already
+                                                 encodes the prior set of arguments.}.unindent
+    argument :before, DateTimeType, description: "Return only items *before* this date/time (within the `order` ordering)"
+    argument :after, DateTimeType, description: "Return only items *after* this date/time (within the `order` ordering)"
+    argument :tag, types.String, description: "Subset items with keyword, subject, or discipline matching this tag"
+    argument :order, ItemOrderEnum, default_value: "ADDED_DESC",
+             description: %{Sets the ordering of results
+                            (and affect interpretation of the `before` and `after` arguments)}
     resolve -> (obj, args, ctx) { ItemsData.new(args) }
   end
 

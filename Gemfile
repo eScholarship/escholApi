@@ -9,7 +9,6 @@ gem 'sqlite3'
 gem 'puma'
 gem 'colorize'
 gem 'rack-protection'
-gem 'rerun'
 gem 'mysql2'
 
 # Graphql
@@ -21,6 +20,9 @@ gem 'rack-jwt'
 
 # Socks proxying for development
 gem 'socksify'
+
+# Other
+gem 'unindent'
 
 group :development do
   gem 'rake', '~> 10.0'
