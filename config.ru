@@ -46,7 +46,10 @@ end
 # Load app
 require "escholApi"
 
+puts "dir=#{File.expand_path(File.dirname(__FILE__))}"
 %w{config/initializers lib}.each do |load_path|
+  puts "Searching #{load_path.inspect}"
+  puts "  exists=#{File.exists?(load_path).inspect}"
   Find.find(load_path) { |f|
     require f unless f.match(/\/\..+$/) || File.directory?(f)
   }
