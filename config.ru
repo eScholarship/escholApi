@@ -46,7 +46,15 @@ end
 # Load app
 require "escholApi"
 
-puts "dir=#{File.expand_path(File.dirname(__FILE__))}"
+fileDir = File.expand_path(File.dirname(__FILE__))
+puts "fileDir=#{fileDir}"
+puts "cwd=#{Dir.getwd}"
+Find.find(fileDir) do |path|
+  if path != fileDir && File.directory?(path)
+    puts "  subdir=#{path}"
+    Find.prune
+  end
+end
 %w{config/initializers lib}.each do |load_path|
   puts "Searching #{load_path.inspect}"
   puts "  exists=#{File.exists?(load_path).inspect}"
