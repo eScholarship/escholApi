@@ -55,13 +55,9 @@ Find.find(fileDir) do |path|
     Find.prune
   end
 end
-%w{config/initializers lib}.each do |load_path|
-  puts "Searching #{load_path.inspect}"
-  puts "  exists=#{File.exists?(load_path).inspect}"
-  Find.find(load_path) { |f|
-    require f unless f.match(/\/\..+$/) || File.directory?(f)
-  }
-end
+Find.find("lib") { |f|
+  require f unless f.match(/\/\..+$/) || File.directory?(f)
+}
 #DB << "SET CLIENT_ENCODING TO 'UTF8';"
 DB.loggers << logger if logger
 
