@@ -13,6 +13,7 @@ gem 'mysql2'
 
 # Graphql
 gem 'graphql'
+gem 'graphql-batch'
 gem 'json'
 
 # Token

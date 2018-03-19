@@ -32,8 +32,9 @@ type Item {
   "Publication type; usually ARTICLE"                 type: ItemType!
   "Date the item was published"                       published: Date!
   "Date the item was added to eScholarship"           added: Date!
+  "Date and time the item was last updated"           updated: DateTime!
   "Permanent link to the item on escholarship.org"    permaLink: String!
-  "Content MIME type (e.g application/pdf)"           contentType: String
+  "Main content MIME type (e.g application/pdf)"      contentType: String
   "Download link for PDF/content file (if applic.)"   downloadLink: String
   "All authors, editors, etc. (can be long)"          contributors(name: String, email: String, role: Role,
                                                                    fuzzy: Boolean = true): Contributors
@@ -127,6 +128,7 @@ enum ItemOrder {
 "Publication status of an Item (usually PUBLISHED)"
 enum ItemStatus {
   "Currently under embargo (omitted from queries)"    EMBARGOED
+  "Published without any data (omitted from queries)" EMPTY
   "Normal published item"                             PUBLISHED
   "Item was withdrawn (omitted from queries)"         WITHDRAWN
 }
@@ -137,7 +139,8 @@ enum ItemType {
   "Chapter within a book/monograph"                   CHAPTER
   "Electronic thesis/dissertation"                    ETD
   "A book / monograph"                                MONOGRAPH
-  "Non-textual work"                                  NON_TEXTUAL
+  "Multimedia (e.g. video, audio, etc.)"              MULTIMEDIA
+  "Other non-textual work"                            NON_TEXTUAL
 }
 
 "Local item identifiers, e.g. PubMed ID, LBNL ID, etc."

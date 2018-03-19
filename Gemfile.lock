@@ -4,6 +4,9 @@ GEM
     colorize (0.8.1)
     ffi (1.9.23)
     graphql (1.7.12)
+    graphql-batch (0.3.9)
+      graphql (>= 0.8, < 2)
+      promise.rb (~> 0.7.2)
     json (2.0.2)
     jwt (1.5.5)
     listen (3.1.5)
@@ -12,6 +15,7 @@ GEM
       ruby_dep (~> 1.2)
     minitest (5.9.0)
     mysql2 (0.4.10)
+    promise.rb (0.7.4)
     puma (3.6.0)
     rack (1.6.4)
     rack-jwt (0.3.0)
@@ -44,6 +48,7 @@ PLATFORMS
 DEPENDENCIES
   colorize
   graphql
+  graphql-batch
   json
   minitest (~> 5.2)
   mysql2

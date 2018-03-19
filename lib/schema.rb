@@ -3,6 +3,29 @@ require 'json'
 require 'unindent'
 
 ###################################################################################################
+# For batching
+class RecordLoader < GraphQL::Batch::Loader
+  def initialize(model)
+    @model = model
+  end
+
+  def perform(ids)
+    if @model == UnitItem
+      result = Hash.new { |h,k| h[k] = [] }
+      @model.where(item_id: ids, is_direct: true).order(:ordering_of_units).select(:item_id, :unit_id).each { |record|
+        result[record.item_id] << record
+      }
+      result.each { |k,v| fulfill(k, v) }
+    else
+      @model.where(id: ids).each { |record|
+        fulfill(record.id, record)
+      }
+    end
+    ids.each { |id| fulfill(id, nil) unless fulfilled?(id) }
+  end
+end
+
+###################################################################################################
 DateType = GraphQL::ScalarType.define do
   name "Date"
   description %{A date in ISO-8601 format. Example: "2018-03-09"}
@@ -53,6 +76,16 @@ ItemType = GraphQL::ObjectType.define do
 
   field :title, !types.String, "Title of the item (may include embedded HTML formatting tags)"
 
+  field :status, !ItemStatusEnum, "Publication status; usually PUBLISHED" do
+    resolve -> (obj, args, ctx) { obj.status.upcase }
+  end
+
+  field :type, !ItemTypeEnum, "Publication type; usually ARTICLE" do
+    resolve -> (obj, args, ctx) {
+      obj.genre == "dissertation" ? "ETD" : obj.genre.upcase
+    }
+  end
+
   field :published, !types.String, "Date the item was published" do
     resolve -> (obj, args, ctx) { obj.published }
   end
@@ -63,6 +96,29 @@ ItemType = GraphQL::ObjectType.define do
 
   field :updated, !DateTimeType, "Date and time the item was last updated on eScholarship" do
     resolve -> (obj, args, ctx) { obj.updated }
+  end
+
+  field :permalink, !types.String, "Permanent link to the item on escholarship.org" do
+    resolve -> (obj, args, ctx) { "https://escholarship.org/uc/item/#{obj.id.sub(/^qt/,'')}" }
+  end
+
+  field :contentType, types.String, "Main content MIME type (e.g. application/pdf)" do
+    resolve -> (obj, args, ctx) { obj.content_type }
+  end
+
+  field :contentLink, types.String, "Download link for PDF/content file (if applicable)" do
+    resolve -> (obj, args, ctx) {
+      obj.status == "published" && obj.content_type == "application/pdf" ?
+        "https://escholarship.org/content/#{obj.id}/#{obj.id}.pdf" : nil
+    }
+  end
+
+  field :units, !types[UnitType], "The series/unit(s) associated with this item" do
+    resolve -> (obj, args, ctx) {
+      RecordLoader.for(UnitItem).load(obj.id).then { |unitItems|
+        RecordLoader.for(Unit).load_many(unitItems.map { |unitItem| unitItem.unit_id })
+      }
+    }
   end
 
   field :tags, types[types.String], "Unified disciplines, keywords, and subjects" do
@@ -88,6 +144,28 @@ ItemOrderEnum = GraphQL::EnumType.define do
   value("PUBLISHED_DESC", "Date published, newest to oldest")
   value("UPDATED_ASC", "Date updated in eScholarship, oldest to newest")
   value("UPDATED_DESC", "Date updated in eScholarship, newest to oldest")
+end
+
+###################################################################################################
+ItemStatusEnum = GraphQL::EnumType.define do
+  name "ItemStatus"
+  description "Publication status of an Item (usually PUBLISHED)"
+  value("EMBARGOED", "Currently under embargo (omitted from queries)")
+  value("EMPTY", "Item was published but has no link or files (omitted from queries)")
+  value("PUBLISHED", "Normal published item")
+  value("WITHDRAWN", "Item was withdrawn (omitted from queries)")
+end
+
+###################################################################################################
+ItemTypeEnum = GraphQL::EnumType.define do
+  name "ItemType"
+  description "Publication type of an Item (often ARTICLE)"
+  value("ARTICLE", "Normal article, e.g. a journal article")
+  value("CHAPTER", "Chapter within a book/monograph")
+  value("ETD", "Electronic thesis/dissertation")
+  value("MONOGRAPH", "A book / monograph")
+  value("MULTIMEDIA", "Multimedia (e.g. video, audio, etc.)")
+  value("NON_TEXTUAL", "Other non-textual work")
 end
 
 ###################################################################################################
@@ -233,4 +311,5 @@ end
 ###################################################################################################
 Schema = GraphQL::Schema.define do
   query QueryType
+  use GraphQL::Batch
 end

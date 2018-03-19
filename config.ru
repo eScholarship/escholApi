@@ -47,14 +47,6 @@ end
 require "escholApi"
 
 fileDir = File.expand_path(File.dirname(__FILE__))
-puts "fileDir=#{fileDir}"
-puts "cwd=#{Dir.getwd}"
-Find.find(fileDir) do |path|
-  if path != fileDir && File.directory?(path)
-    puts "  subdir=#{path}"
-    Find.prune
-  end
-end
 Find.find("lib") { |f|
   require f unless f.match(/\/\..+$/) || File.directory?(f)
 }
