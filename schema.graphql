@@ -8,9 +8,6 @@ type Query {
                                                             before: DateTime, after: DateTime,
                                                             tag: String, first: Int = 100, more: Cursor): Items!
   "Get a unit given its identifier"                   unit(id: ID!): Unit
-  "Get contributor's info given their id"             contributor(id: ID!): Contributor
-  "Query a list of all contributors"                  contributors(name: String, email: String, role: Role,
-                                                                   fuzzy: Boolean = true): Contributors
 }
 
 "Opaque cursor used for paging through long lists"    scalar Cursor
@@ -36,8 +33,8 @@ type Item {
   "Permanent link to the item on escholarship.org"    permaLink: String!
   "Main content MIME type (e.g application/pdf)"      contentType: String
   "Download link for PDF/content file (if applic.)"   downloadLink: String
-  "All authors, editors, etc. (can be long)"          contributors(name: String, email: String, role: Role,
-                                                                   fuzzy: Boolean = true): Contributors
+  "All authors (can be long)"                         authors: Authors
+  "Editors, advisors, etc. (if any)"                  contributors: Contributors
   "The series/unit(s) associated with this item"      units: [Unit]
   "Embargo expiration date (if status=EMBARGOED)"     embargoExpires: Date
   "Licence (public, or cc-by-nd, etc.)"               license: String!
@@ -56,8 +53,6 @@ type Unit {
   "Query items in the unit (incl. children)"          items(order: ItemOrder = UPDATED_DESC,
                                                             before: DateTime, after: DateTime,
                                                             tag: String, first: Int = 100, more: Cursor): Items!
-  "Query contributors to the unit's items"            contributors(name: String, email: String, role: Role,
-                                                                   fuzzy: Boolean = true): Contributors
 }
 
 "Type of unit within eScholarship"
@@ -71,32 +66,41 @@ enum UnitType {
   "General series of publications"                    SERIES
 }
 
-"A (possibly very long) list of contributors, with paging capability"
-type Contributors {
-  "Approximate total contributors on all pages"       total: Int!
-  "Array of the contributors on this page"            nodes: [Contributor]!
-  "Role of each contributor on this page (if any)"    roles: [Role]
+"A list of authors, with paging capability because some papers have thousands"
+type Authors {
+  "Approximate total agents on all pages"             total: Int!
+  "Array of the authors on this page"                 nodes: [Agent]!
   "Opaque cursor string for next page"                more: Cursor
 }
 
-"A single author, editor, etc."
-type Contributor {
-  "Identifier within eschol: 'ark:/99166/p3...'"      id: ID
-  "Name(s) used by this contributor"                  names: [ContributorName]
-  "Items to which this contributor has contributed"   items(order: ItemOrder = UPDATED_DESC,
-                                                            before: DateTime, after: DateTime,
-                                                            tags: String, first: Int = 100, more: Cursor): Items!
+"A single author (can be a person or organization)"
+type Author {
+  "Combined name parts; usually 'lname, fname'"       name: String!
+  "Individual name parts for special needs"           nameParts: NameParts
 }
 
-"One name used by an author, editor, etc."
-type ContributorName {
-  "Combined form of the fields; e.g. 'lname, fname'"  name: String
+"A list of contributors (e.g. editors, advisors), with paging capability"
+type Contributors {
+  "Approximate total agents on all pages"             total: Int!
+  "Array of the authors on this page"                 nodes: [Contributor]!
+  "Opaque cursor string for next page (rare)"         more: Cursor
+}
+
+"A single author or other contributor, and their role"
+type Contributor {
+  "Role in which this person or org contributed"      role: Role!
+  "Combined form of name parts; e.g. 'lname, fname'"  name: String!
+  "Individual name parts for special needs"           nameParts: NameParts
+}
+
+# individual field access for special needs
+type NameParts {
   "First name / given name"                           fname: String
   "Last name / surname"                               lname: String
   "Middle name"                                       mname: String
   "Suffix (e.g. Ph.D)"                                suffix: String
   "Institutional affiliation"                         institution: String
-  "Instead of lname/fname if contrib is group/corp"   organization: String
+  "Instead of lname/fname if this is a group/corp"    organization: String
 }
 
 "The role in which a contributor made their contribution to an item"
