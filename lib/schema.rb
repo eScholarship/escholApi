@@ -62,7 +62,7 @@ DateType = GraphQL::ScalarType.define do
     end
   end
 
-  coerce_result ->(value, ctx) { value.iso8601 }
+  coerce_result ->(value, ctx) { (value.instance_of?(Date) ? value : Date.iso8601(value)).iso8601 }
 end
 
 ###################################################################################################
@@ -133,7 +133,7 @@ ItemType = GraphQL::ObjectType.define do
   field :contentLink, types.String, "Download link for PDF/content file (if applicable)" do
     resolve -> (obj, args, ctx) {
       obj.status == "published" && obj.content_type == "application/pdf" ?
-        "https://escholarship.org/content/#{obj.id}/#{obj.id}.pdf" : nil
+        "https://cloudfront.escholarship.org/dist/prd/content/#{obj.id}/#{obj.id}.pdf" : nil
     }
   end
 
@@ -143,7 +143,26 @@ ItemType = GraphQL::ObjectType.define do
       return val
     }
     argument :more, types.String
-    resolve -> (obj, args, ctx) { AuthorsData.new(args, obj.id) }
+    resolve -> (obj, args, ctx) {
+      data = AuthorsData.new(args, obj.id)
+      data.total.then { |total|
+        total && total > 0 ? data : nil
+      }
+    }
+  end
+
+  field :contributors, ContributorsType, "Editors, advisors, etc. (if any)" do
+    argument :first, types.Int, default_value: 100, prepare: ->(val, ctx) {
+      (val.nil? || (val >= 1 && val <= 500)) or return GraphQL::ExecutionError.new("'first' must be in range 1..500")
+      return val
+    }
+    argument :more, types.String
+    resolve -> (obj, args, ctx) {
+      data = ContributorsData.new(args, obj.id)
+      data.total.then { |total|
+        total && total > 0 ? data : nil
+      }
+    }
   end
 
   field :units, !types[UnitType], "The series/unit(s) associated with this item" do
@@ -165,7 +184,28 @@ ItemType = GraphQL::ObjectType.define do
     }
   end
 
-  # TODO: many more item fields in the schema
+  field :embargoExpires, DateType, "Embargo expiration date (if status=EMBARGOED)" do
+    resolve -> (obj, args, ctx) {
+      (obj.attrs ? JSON.parse(obj.attrs) : {})['embargo_date']
+    }
+  end
+
+  field :rights, types.String, "License (none, or cc-by-nd, etc.)" do
+    resolve -> (obj, args, ctx) {
+      obj.status != "published" ? obj.status : obj.rights
+    }
+  end
+
+  field :suppFiles, types[SuppFileType], "Supplemental material (if any)" do
+    resolve -> (obj, args, ctx) {
+      supps = (obj.attrs ? JSON.parse(obj.attrs) : {})['supp_files']
+      if supps
+        supps.map { |data| data.merge({item_id: obj.id}) }
+      else
+        nil
+      end
+    }
+  end
 end
 
 ###################################################################################################
@@ -327,6 +367,115 @@ AuthorType = GraphQL::ObjectType.define do
 
   field :name, !types.String, "Combined name parts; usually 'lname, fname'" do
     resolve -> (obj, args, ctx) { JSON.parse(obj.attrs)['name'] }
+  end
+
+  field :nameParts, NamePartsType, "Individual name parts for special needs" do
+    resolve -> (obj, args, ctx) { JSON.parse(obj.attrs) }
+  end
+end
+
+###################################################################################################
+ContributorsType = GraphQL::ObjectType.define do
+  name "Contributors"
+  description "A list of contributors (e.g. editors, advisors), with rarely-needed paging capability"
+  field :total, !types.Int, "Approximate total contributors on all pages"
+  field :nodes, !types[ContributorType], "Array of the contribuors on this page"
+  field :more, types.String, "Opaque cursor string for next page"
+end
+
+###################################################################################################
+class ContributorsData
+  def initialize(args, itemID)
+    # If 'more' was specified, decode it and use all the parameters from the original query
+    @args = args['more'] ? JSON.parse(Base64.urlsafe_decode64(args['more'])) : args.to_h.clone
+
+    # Record the item ID for querying
+    @itemID = itemID
+  end
+
+  def total
+    @total ||= CountLoader.for(ItemContrib, :item_id).load(@itemID)
+  end
+
+  def nodes
+    query = ItemContrib.order(:item_id, :ordering)
+    @args['lastOrd'] and query = query.where(Sequel.lit("ordering > ?", @args['lastOrd']))
+    @nodes ||= GroupLoader.for(query, :item_id, @args['first']).load(@itemID)
+  end
+
+  def more
+    nodes.then { |arr|
+      if arr && arr.length == @args['first']
+        Base64.urlsafe_encode64(@args.merge({lastOrd: arr[-1].ordering}).to_json)
+      else
+        nil
+      end
+    }
+  end
+end
+
+###################################################################################################
+ContributorType = GraphQL::ObjectType.define do
+  name "Contributor"
+  description "A single author (can be a person or organization)"
+
+  field :name, !types.String, "Combined name parts; usually 'lname, fname'" do
+    resolve -> (obj, args, ctx) { JSON.parse(obj.attrs)['name'] }
+  end
+
+  field :role, !RoleEnum, "Role in which this person or org contributed" do
+    resolve -> (obj, args, ctx) { obj.role.upcase }
+  end
+
+  field :nameParts, NamePartsType, "Individual name parts for special needs" do
+    resolve -> (obj, args, ctx) { JSON.parse(obj.attrs) }
+  end
+end
+
+###################################################################################################
+RoleEnum = GraphQL::EnumType.define do
+  name "Role"
+  description "Publication type of an Item (often ARTICLE)"
+  value("ADVISOR", "Advised on the work (e.g. on a thesis)")
+  value("EDITOR", "Edited the work")
+end
+
+###################################################################################################
+NamePartsType = GraphQL::ObjectType.define do
+  name "NameParts"
+  description "Individual access to parts of the name, generally only used in special cases"
+  field :fname, types.String, "First name / given name" do
+    resolve -> (obj, args, ctx) { obj['fname'] }
+  end
+  field :lname, types.String, "Last name / surname" do
+    resolve -> (obj, args, ctx) { obj['lname'] }
+  end
+  field :mname, types.String, "Middle name" do
+    resolve -> (obj, args, ctx) { obj['mname'] }
+  end
+  field :suffix, types.String, "Suffix (e.g. Ph.D)" do
+    resolve -> (obj, args, ctx) { obj['suffix'] }
+  end
+  field :institution, types.String, "Institutional affiliation" do
+    resolve -> (obj, args, ctx) { obj['institution'] }
+  end
+  field :organization, types.String, "Instead of lname/fname if this is a group/corp" do
+    resolve -> (obj, args, ctx) { obj['organization'] }
+  end
+end
+
+###################################################################################################
+SuppFileType = GraphQL::ObjectType.define do
+  name "SuppFile"
+  description "A file containing supplemental material for an item"
+  field :file, !types.String, "Name of the file" do
+    resolve -> (obj, args, ctx) { obj['file'] }
+  end
+  field :contentType, types.String, "Content MIME type of file, if known" do
+    resolve -> (obj, args, ctx) { obj['mimeType'] }
+  end
+  field :downloadLink, !types.String, "URL to download the file" do
+    resolve -> (obj, args, ctx) { "https://cloudfront.escholarship.org/dist/prd/content/#{obj[:item_id]}/supp/#{obj['file']}" }
   end
 end
 

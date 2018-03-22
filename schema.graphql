@@ -37,7 +37,7 @@ type Item {
   "Editors, advisors, etc. (if any)"                  contributors: Contributors
   "The series/unit(s) associated with this item"      units: [Unit]
   "Embargo expiration date (if status=EMBARGOED)"     embargoExpires: Date
-  "Licence (public, or cc-by-nd, etc.)"               license: String!
+  "License (none, or CC-BY-ND, etc.)"                 license: String!
   "Supplemental material (if any)"                    suppFiles: [SuppFile]
   "Local identifiers, e.g. PubMed ID, LBNL, etc."     localIDs: [LocalID]
   "Unified disciplines, keywords, and subjects"       tags: [String]
@@ -93,7 +93,7 @@ type Contributor {
   "Individual name parts for special needs"           nameParts: NameParts
 }
 
-# individual field access for special needs
+"Individual access to parts of the name, generally only used in special cases"
 type NameParts {
   "First name / given name"                           fname: String
   "Last name / surname"                               lname: String
@@ -156,8 +156,8 @@ type LocalID {
 
 "A supplemental file associated with an item"
 type SuppFile {
-  "Size in bytes"                                     size: Int!
-  "Content MIME type of file"                         contentType: String!
+  "Name of the file"                                  file: String!
+  "Content MIME type of file, if known"               contentType: String
   "Download location"                                 downloadLink: String!
   "Original name of the file"                         filename: String
 }
