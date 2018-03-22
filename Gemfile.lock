@@ -3,43 +3,41 @@ GEM
   specs:
     colorize (0.8.1)
     ffi (1.9.23)
-    graphql (1.7.12)
+    graphql (1.7.13)
     graphql-batch (0.3.9)
       graphql (>= 0.8, < 2)
       promise.rb (~> 0.7.2)
-    json (2.0.2)
-    jwt (1.5.5)
+    json (2.1.0)
+    jwt (1.5.6)
     listen (3.1.5)
       rb-fsevent (~> 0.9, >= 0.9.4)
       rb-inotify (~> 0.9, >= 0.9.7)
       ruby_dep (~> 1.2)
-    minitest (5.9.0)
-    mysql2 (0.4.10)
+    mustermann (1.0.2)
+    mysql2 (0.5.0)
     promise.rb (0.7.4)
-    puma (3.6.0)
-    rack (1.6.4)
+    puma (3.11.3)
+    rack (2.0.4)
     rack-jwt (0.3.0)
       jwt (~> 1.5.2)
       rack (>= 1.6.0)
-    rack-protection (1.5.3)
+    rack-protection (2.0.1)
       rack
-    rack-test (0.6.3)
-      rack (>= 1.0)
-    rake (10.5.0)
     rb-fsevent (0.10.3)
     rb-inotify (0.9.10)
       ffi (>= 0.5.0, < 2)
     rerun (0.13.0)
       listen (~> 3.0)
     ruby_dep (1.5.0)
-    sequel (5.5.0)
-    sinatra (1.4.7)
-      rack (~> 1.5)
-      rack-protection (~> 1.4)
-      tilt (>= 1.3, < 3)
+    sequel (5.6.0)
+    sinatra (2.0.1)
+      mustermann (~> 1.0)
+      rack (~> 2.0)
+      rack-protection (= 2.0.1)
+      tilt (~> 2.0)
     socksify (1.7.1)
     sqlite3 (1.3.13)
-    tilt (2.0.5)
+    tilt (2.0.8)
     unindent (1.0)
 
 PLATFORMS
@@ -50,16 +48,13 @@ DEPENDENCIES
   graphql
   graphql-batch
   json
-  minitest (~> 5.2)
   mysql2
   puma
   rack-jwt
   rack-protection
-  rack-test (~> 0.6)
-  rake (~> 10.0)
   rerun
   sequel
-  sinatra (>= 1.4)
+  sinatra (>= 2.0.1)
   socksify
   sqlite3
   unindent
