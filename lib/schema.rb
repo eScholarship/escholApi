@@ -262,8 +262,6 @@ end
 
 ###################################################################################################
 class ItemsData
-  attr_reader :total, :nodes, :more
-
   def initialize(args, unitID = nil)
     query = Item.where(status: 'published')
 
@@ -302,20 +300,30 @@ class ItemsData
       }, args['tag'], args['tag'], args['tag']))
     end
 
-    # Record the total matching
-    @total = query.count
+    @query = query
+    @limit = args['first'].to_i
+    @args = args.to_h.clone
+    @field = field
+  end
 
-    # Okay, go get one page of items
-    limit = args['first'].to_i
-    @nodes = query.limit(limit).all
+  def total
+    @count ||= @query.count
+  end
 
-    # If there might be more in the list, encode all the parameters needed to query for
-    # the next page.
-    if @nodes.length == limit
-      more = args.to_h.clone
-      more['lastID']   = nodes[-1].id
-      more['lastDate'] = nodes[-1][field].iso8601
-      @more = Base64.urlsafe_encode64(more.to_json)
+  def nodes
+    @nodes ||= @query.limit(@limit).all
+  end
+
+  # If there might be more in the list, encode all the parameters needed to query for
+  # the next page.
+  def more
+    if nodes().length == @limit
+      more = @args.clone
+      more['lastID']   = nodes()[-1].id
+      more['lastDate'] = nodes()[-1][@field].iso8601
+      return Base64.urlsafe_encode64(more.to_json)
+    else
+      return nil
     end
   end
 end
