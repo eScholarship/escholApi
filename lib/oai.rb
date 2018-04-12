@@ -2,7 +2,7 @@
 
 require 'oai'
 
-def query(query, **args)
+def apiQuery(query, **args)
   args.empty? and query = "query { #{query} }"
   response = Schema.execute(query, variables: JSON.parse(args.to_json))
   response['errors'] and raise("GraphQL error: #{response['errors'][0]['message']}")
@@ -11,11 +11,11 @@ end
 
 class EscholModel < OAI::Provider::Model
   def earliest
-    query("items(first:1, order:UPDATED_ASC) { nodes { updated } }").dig("items", "nodes", 0, "updated")
+    apiQuery("items(first:1, order:UPDATED_ASC) { nodes { updated } }").dig("items", "nodes", 0, "updated")
   end
 
   def latest
-    query("items(first:1, order:UPDATED_DESC) { nodes { updated } }").dig("items", "nodes", 0, "updated")
+    apiQuery("items(first:1, order:UPDATED_DESC) { nodes { updated } }").dig("items", "nodes", 0, "updated")
   end
 
   def sets
