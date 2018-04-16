@@ -16,7 +16,7 @@ gem 'graphql'
 gem 'graphql-batch'
 gem 'json'
 
-# OAI-PNH
+# OAI-PMH
 gem 'oai'
 
 # Token

@@ -48,7 +48,7 @@ require "escholApi"
 
 fileDir = File.expand_path(File.dirname(__FILE__))
 Find.find("lib") { |f|
-  require f unless f.match(/\/\..+$/) || File.directory?(f)
+  require f unless f.match(/\/\..+$/) || File.directory?(f) || !f.match(/\.rb$/)
 }
 #DB << "SET CLIENT_ENCODING TO 'UTF8';"
 DB.loggers << logger if logger

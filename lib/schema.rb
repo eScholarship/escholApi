@@ -321,7 +321,7 @@ class ItemsData
       more = @args.clone
       more['lastID']   = nodes()[-1].id
       more['lastDate'] = nodes()[-1][@field].iso8601
-      return Base64.urlsafe_encode64(more.to_json)
+      return Base64.urlsafe_encode64(more.to_json).gsub('=', '')
     else
       return nil
     end
