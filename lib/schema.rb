@@ -145,8 +145,8 @@ ItemType = GraphQL::ObjectType.define do
     argument :more, types.String
     resolve -> (obj, args, ctx) {
       data = AuthorsData.new(args, obj.id)
-      data.total.then { |total|
-        total && total > 0 ? data : nil
+      data.nodes.then { |nodes|
+        nodes && !nodes.empty? ? data : nil
       }
     }
   end
@@ -225,8 +225,8 @@ ItemType = GraphQL::ObjectType.define do
     argument :more, types.String
     resolve -> (obj, args, ctx) {
       data = ContributorsData.new(args, obj.id)
-      data.total.then { |total|
-        total && total > 0 ? data : nil
+      data.nodes.then { |nodes|
+        nodes && !nodes.empty? ? data : nil
       }
     }
   end
@@ -450,7 +450,7 @@ class AuthorsData
   end
 
   def total
-    CountLoader.for(ItemAuthor, :item_id).load(@itemID)
+    @total ||= CountLoader.for(ItemAuthor, :item_id).load(@itemID)
   end
 
   def nodes

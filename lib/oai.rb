@@ -147,12 +147,12 @@ end
 class EscholModel < OAI::Provider::Model
   # Earliest update: date of first item in ascending update order
   def earliest
-    apiQuery("items(first:1, order:UPDATED_ASC) { nodes { updated } }").dig("items", "nodes", 0, "updated")
+    @earliest = apiQuery("items(first:1, order:UPDATED_ASC) { nodes { updated } }").dig("items", "nodes", 0, "updated")
   end
 
   # Latest update: first item in *descending* update order
   def latest
-    apiQuery("items(first:1, order:UPDATED_DESC) { nodes { updated } }").dig("items", "nodes", 0, "updated")
+    @latest = apiQuery("items(first:1, order:UPDATED_DESC) { nodes { updated } }").dig("items", "nodes", 0, "updated")
   end
 
   # TODO
@@ -162,8 +162,6 @@ class EscholModel < OAI::Provider::Model
 
   # The main query method
   def find(selector, opts={})
-    puts "find: selector=#{selector} opts=#{opts}"
-
     itemFields = %{
       id
       updated
@@ -201,11 +199,15 @@ class EscholModel < OAI::Provider::Model
       opts[:metadata_prefix] = resump.opts[:metadata_prefix]
     end
 
-    # Now form a GraphQL query to capture the data we want
+    # Now form a GraphQL query to capture the data we want.
+    # A note on the time parameters below: the OAI library we're using fills in :from and :until
+    # even if they weren't specified in the URL; for efficience we filter them out in that case.
     data = apiQuery(%{
       items(
         order: UPDATED_DESC
         #{resump ? ", more: \"#{resump.more}\"" : ''}
+        #{!resump && opts[:from] && opts[:from].iso8601 != @earliest ? ", after: \"#{(opts[:from]-1).iso8601}\"" : ''}
+        #{!resump && opts[:until] && opts[:until].iso8601 != @latest ? ", before: \"#{(opts[:until]+1).iso8601}\"" : ''}
       ) {
         #{resump ? '' : 'total'}
         more
