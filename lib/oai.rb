@@ -10,7 +10,7 @@ require 'oai'
 def apiQuery(query, **args)
   args.empty? and query = "query { #{query} }"
   response = Schema.execute(query, variables: JSON.parse(args.to_json))
-  response['errors'] and raise("GraphQL error: #{response['errors'][0]['message']}")
+  response['errors'] and raise("Internal error (graphql): #{response['errors'][0]['message']}")
   response['data']
 end
 
@@ -46,7 +46,7 @@ class EscholResumptionToken
 
   # Decode a resumption token into the prefix and opaque 'more' string for the GraphQL API
   def self.decode(str)
-    str =~ /^([\w_]+):([\w\d]+)$/ or raise("Error decoding resumption token")
+    str =~ /^([\w_]+):([\w\d]+)$/ or raise(OAI::ArgumentException.new)
     new({ metadata_prefix: $1 }, nil, $2)
   end
 end
@@ -75,13 +75,9 @@ class EscholRecord
     @data['abstract'] and xml.tag!("dc:description", @data['abstract'].gsub(/<\/?[^>]*>/, ""))  # strip HTML tags
     (@data['subjects']||[]).each { |subj| xml.tag!("dc:subject", subj) }
     @data['language'] and xml.tag!("dc:language", @data['language'])
-    xml.tag!("dc:type", @data['type'].downcase)
     @data['contentType'] and xml.tag!("dc:format", @data['contentType'])
-    if @data['fpage']
-      xml.tag!("dc:coverage", "#{@data['fpage']}#{@data['lpage'] ? ' - '+@data['lpage'] : ''}")
-    end
     xml.tag!("dc:rights", @data['rights'] || 'public')
-    xml.tag!("dc:relation", "https://escholarship.org/uc/item/#{@data['id'].sub(%r{^ark:/13030/qt}, '')}")
+    xml.tag!("dc:publisher", "eScholarship, University of California")
   end
 
   def to_oai_dc
@@ -96,6 +92,16 @@ class EscholRecord
     }
     xml.tag!("oai_dc:dc", header_spec) {
       dcFields(xml)
+      xml.tag!("dc:type", @data['type'].downcase)
+      if @data['journal']
+        issData = [@data['journal']]
+        @data['volume'] and issData << "vol #{@data['volume']}"
+        @data['issue'] and issData << "iss #{@data['issue']}"
+        xml.tag!("dc:source", issData.compact.join(", "))
+        @data['fpage'] and xml.tag!("dc:coverage", [@data['fpage'], @data['lpage']].compact.join(" - "))
+      elsif @data['publisher']
+        xml.tag!("dc:source", @data['publisher'])
+      end
     }
     xml.target!
   end
@@ -112,6 +118,25 @@ class EscholRecord
     }
     xml.tag!("oclc_dc:dc", header_spec) {
       dcFields(xml)
+
+      # Special type logic for OCLC
+      xml.tag!("dc:type", (@data['type'] == "ARTICLE" && @data['journal'] && (@data['volume'] || @data['issue'])) ? "article" :
+                          (@data['type'] == "MONOGRAPH") ? "monograph" :
+                          "publication")
+
+      # OCLC-specific way to encode journal-related fields
+      if @data['journal']
+        xml.tag!("dc:source", @data['journal'])
+        issData = []
+        @data['volume'] and issData << "vol #{@data['volume']}"
+        @data['issue'] and issData << "iss #{@data['issue']}"
+        @data['fpage'] and issData << [@data['fpage'], @data['lpage']].compact.join("-")
+        xml.tag!("dc:source", issData.join(", "))
+        xml.tag!("dc:source", @data['issn'])
+      end
+
+      # Second version of identifier for OCLC harvesting
+      xml.tag!("dc:identifier", "https://escholarship.org/uc/item/#{@data['id'].sub(%r{^ark:/13030/qt}, '')}")
     }
     xml.target!
   end
@@ -137,7 +162,6 @@ class EscholModel < OAI::Provider::Model
 
   # The main query method
   def find(selector, opts={})
-
     puts "find: selector=#{selector} opts=#{opts}"
 
     itemFields = %{
@@ -152,18 +176,21 @@ class EscholModel < OAI::Provider::Model
       language
       type
       contentType
+      rights
+      journal
+      volume
+      issue
       fpage
       lpage
-      rights
+      issn
     }
 
     if selector != :all
       selector.sub!("ark:/13030/", "")
-      selector =~ /^qt\w{8}$/ or raise("Invalid ID")
+      selector =~ /^qt\w{8}$/ or raise(OAI::IdException.new)
       record = apiQuery(%{
         item(id: "#{selector}") { #{itemFields} }
       }).dig("item")
-      puts "record=#{record}"
       return EscholRecord.new(record)
     end
 

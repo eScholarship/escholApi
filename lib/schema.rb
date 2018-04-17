@@ -157,6 +157,66 @@ ItemType = GraphQL::ObjectType.define do
     }
   end
 
+  field :journal, types.String, "Journal name" do
+    resolve -> (obj, args, ctx) {
+      if obj.section
+        RecordLoader.for(Section).load(obj.section).then { |section|
+          RecordLoader.for(Issue).load(section.issue_id).then { |issue|
+            RecordLoader.for(Unit).load(issue.unit_id).then { |unit|
+              unit.name
+            }
+          }
+        }
+      else
+        (obj.attrs ? JSON.parse(obj.attrs) : {}).dig('ext_journal', 'name')
+      end
+    }
+  end
+
+  field :volume, types.String, "Journal volume number" do
+    resolve -> (obj, args, ctx) {
+      if obj.section
+        RecordLoader.for(Section).load(obj.section).then { |section|
+          RecordLoader.for(Issue).load(section.issue_id).then { |issue|
+            issue.volume
+          }
+        }
+      else
+        (obj.attrs ? JSON.parse(obj.attrs) : {}).dig('ext_journal', 'volume')
+      end
+    }
+  end
+
+  field :issue, types.String, "Journal issue number" do
+    resolve -> (obj, args, ctx) {
+      if obj.section
+        RecordLoader.for(Section).load(obj.section).then { |section|
+          RecordLoader.for(Issue).load(section.issue_id).then { |issue|
+            issue.issue
+          }
+        }
+      else
+        (obj.attrs ? JSON.parse(obj.attrs) : {}).dig('ext_journal', 'issue')
+      end
+    }
+  end
+
+  field :issn, types.String, "Journal ISSN" do
+    resolve -> (obj, args, ctx) {
+      if obj.section
+        RecordLoader.for(Section).load(obj.section).then { |section|
+          RecordLoader.for(Issue).load(section.issue_id).then { |issue|
+            RecordLoader.for(Unit).load(issue.unit_id).then { |unit|
+              (unit.attrs ? JSON.parse(unit.attrs) : {})['issn']
+            }
+          }
+        }
+      else
+        (obj.attrs ? JSON.parse(obj.attrs) : {}).dig('ext_journal', 'issn')
+      end
+    }
+  end
+
   field :contributors, ContributorsType, "Editors, advisors, etc. (if any)" do
     argument :first, types.Int, default_value: 100, prepare: ->(val, ctx) {
       (val.nil? || (val >= 1 && val <= 500)) or return GraphQL::ExecutionError.new("'first' must be in range 1..500")

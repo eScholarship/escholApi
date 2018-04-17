@@ -1,3 +1,5 @@
+class Issue < Sequel::Model
+end
 class Item < Sequel::Model
   unrestrict_primary_key
 end
@@ -6,6 +8,8 @@ class ItemAuthor < Sequel::Model
 end
 class ItemContrib < Sequel::Model
   unrestrict_primary_key
+end
+class Section < Sequel::Model
 end
 class Unit < Sequel::Model
   unrestrict_primary_key
