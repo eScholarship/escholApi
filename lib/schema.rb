@@ -151,6 +151,12 @@ ItemType = GraphQL::ObjectType.define do
     }
   end
 
+  field :abstract, types.String, "Abstract (may include embedded HTML formatting tags)" do
+    resolve -> (obj, args, ctx) {
+      (obj.attrs ? JSON.parse(obj.attrs) : {})['abstract']
+    }
+  end
+
   field :contributors, ContributorsType, "Editors, advisors, etc. (if any)" do
     argument :first, types.Int, default_value: 100, prepare: ->(val, ctx) {
       (val.nil? || (val >= 1 && val <= 500)) or return GraphQL::ExecutionError.new("'first' must be in range 1..500")
@@ -184,6 +190,30 @@ ItemType = GraphQL::ObjectType.define do
     }
   end
 
+  field :subjects, types[types.String], "Subject terms (unrestricted) applying to this item" do
+    resolve -> (obj, args, ctx) {
+      (obj.attrs ? JSON.parse(obj.attrs) : {})['subjects']
+    }
+  end
+
+  field :keywords, types[types.String], "Keywords (unrestricted) applying to this item" do
+    resolve -> (obj, args, ctx) {
+      (obj.attrs ? JSON.parse(obj.attrs) : {})['keywords']
+    }
+  end
+
+  field :disciplines, types[types.String], "Disciplines applying to this item" do
+    resolve -> (obj, args, ctx) {
+      (obj.attrs ? JSON.parse(obj.attrs) : {})['disciplines']
+    }
+  end
+
+  field :language, types.String, "Language specification (ISO 639-2 code)" do
+    resolve -> (obj, args, ctx) {
+      (obj.attrs ? JSON.parse(obj.attrs) : {})['language']
+    }
+  end
+
   field :embargoExpires, DateType, "Embargo expiration date (if status=EMBARGOED)" do
     resolve -> (obj, args, ctx) {
       (obj.attrs ? JSON.parse(obj.attrs) : {})['embargo_date']
@@ -193,6 +223,18 @@ ItemType = GraphQL::ObjectType.define do
   field :rights, types.String, "License (none, or cc-by-nd, etc.)" do
     resolve -> (obj, args, ctx) {
       obj.status != "published" ? obj.status : obj.rights
+    }
+  end
+
+  field :fpage, types.String, "First page (within a larger work like a journal issue)" do
+    resolve -> (obj, args, ctx) {
+      (obj.attrs ? JSON.parse(obj.attrs) : {}).dig('ext_journal', 'fpage')
+    }
+  end
+
+  field :lpage, types.String, "Last page (within a larger work like a journal issue)" do
+    resolve -> (obj, args, ctx) {
+      (obj.attrs ? JSON.parse(obj.attrs) : {}).dig('ext_journal', 'lpage')
     }
   end
 

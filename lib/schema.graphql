@@ -33,6 +33,7 @@ type Item {
   "Permanent link to the item on escholarship.org"    permaLink: String!
   "Main content MIME type (e.g application/pdf)"      contentType: String
   "Download link for PDF/content file (if applic.)"   downloadLink: String
+  "Abstract (w/ embedded HTML tags)"                  abstract: String
   "All authors (can be long)"                         authors: Authors
   "Editors, advisors, etc. (if any)"                  contributors: Contributors
   "The series/unit(s) associated with this item"      units: [Unit]
@@ -41,6 +42,12 @@ type Item {
   "Supplemental material (if any)"                    suppFiles: [SuppFile]
   "Local identifiers, e.g. PubMed ID, LBNL, etc."     localIDs: [LocalID]
   "Unified disciplines, keywords, and subjects"       tags: [String]
+  "Subject terms (unrestricted)"                      subjects: [String]
+  "Keywords (unrestricted)"                           keywords: [String]
+  "Disciplines (from a small set)"                    disciplines: [String]
+  "Language specification (ISO 639-2 code)"           language: String
+  "First page (e.g. within journal issue)"            fpage: String
+  "Last page (e.g. within journal issue)"             lpage: String
 }
 
 "A campus, department, series, or other organized unit within eScholarship"

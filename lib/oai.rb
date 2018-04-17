@@ -15,6 +15,16 @@ def apiQuery(query, **args)
 end
 
 ###################################################################################################
+class OclcDublinCore < OAI::Provider::Metadata::Format
+  def initialize
+    @prefix = 'oclc_dc'
+    @schema = 'http://www.escholarship.org/schema/oclc_dc.xsd'
+    @namespace = 'http://xtf.cdlib.org/oclc_dc'
+    @element_namespace = 'dc'
+  end
+end
+
+###################################################################################################
 # We use a special resumption token class, since most of the actual work of resumption encode/
 # decode is done within the GraphQL API.
 class EscholResumptionToken
@@ -56,6 +66,24 @@ class EscholRecord
     Time.parse(@data['updated'])
   end
 
+  def dcFields(xml)
+    xml.tag!("dc:identifier", @data['id'].sub(%r{^ark:/13030/}, ''))
+    @data['title'] and xml.tag!("dc:title", @data['title'].gsub(/<\/?[^>]*>/, ""))  # strip HTML tags
+    (@data.dig('authors', 'nodes')||[]).each { |auth| xml.tag!("dc:creator", auth['name']) }
+    (@data.dig('contributors', 'nodes')||[]).each { |contrib| xml.tag!("dc:contributor", contrib['name']) }
+    xml.tag!("dc:date", @data['published'])
+    @data['abstract'] and xml.tag!("dc:description", @data['abstract'].gsub(/<\/?[^>]*>/, ""))  # strip HTML tags
+    (@data['subjects']||[]).each { |subj| xml.tag!("dc:subject", subj) }
+    @data['language'] and xml.tag!("dc:language", @data['language'])
+    xml.tag!("dc:type", @data['type'].downcase)
+    @data['contentType'] and xml.tag!("dc:format", @data['contentType'])
+    if @data['fpage']
+      xml.tag!("dc:coverage", "#{@data['fpage']}#{@data['lpage'] ? ' - '+@data['lpage'] : ''}")
+    end
+    xml.tag!("dc:rights", @data['rights'] || 'public')
+    xml.tag!("dc:relation", "https://escholarship.org/uc/item/#{@data['id'].sub(%r{^ark:/13030/qt}, '')}")
+  end
+
   def to_oai_dc
     xml = Builder::XmlMarkup.new
     header_spec = {
@@ -66,10 +94,25 @@ class EscholRecord
         %{http://www.openarchives.org/OAI/2.0/oai_dc/
           http://www.openarchives.org/OAI/2.0/oai_dc.xsd}.gsub(/\s+/, ' ')
     }
-    xml.tag!("oai_dc:dc", header_spec) do
-      xml.tag!("dc:identifier", @data['id'])
-      @data['title'] and xml.tag!("dc:title", @data['title'])
-    end
+    xml.tag!("oai_dc:dc", header_spec) {
+      dcFields(xml)
+    }
+    xml.target!
+  end
+
+  def to_oclc_dc
+    xml = Builder::XmlMarkup.new
+    header_spec = {
+      'xmlns:oclc_dc' => "http://xtf.cdlib.org/oclc_dc",  # yes, different than OAI
+      'xmlns:dc' => "http://purl.org/dc/elements/1.1/",
+      'xmlns:xsi' => "http://www.w3.org/2001/XMLSchema-instance",
+      'xsi:schemaLocation' =>
+        %{http://xtf.cdlib.org/oclc_dc
+          http://www.escholarship.org/schema/oclc_dc.xsd}.gsub(/\s+/, ' ')
+    }
+    xml.tag!("oclc_dc:dc", header_spec) {
+      dcFields(xml)
+    }
     xml.target!
   end
 end
@@ -95,6 +138,35 @@ class EscholModel < OAI::Provider::Model
   # The main query method
   def find(selector, opts={})
 
+    puts "find: selector=#{selector} opts=#{opts}"
+
+    itemFields = %{
+      id
+      updated
+      title
+      published
+      abstract
+      authors { nodes { name } }
+      contributors { nodes { name } }
+      subjects
+      language
+      type
+      contentType
+      fpage
+      lpage
+      rights
+    }
+
+    if selector != :all
+      selector.sub!("ark:/13030/", "")
+      selector =~ /^qt\w{8}$/ or raise("Invalid ID")
+      record = apiQuery(%{
+        item(id: "#{selector}") { #{itemFields} }
+      }).dig("item")
+      puts "record=#{record}"
+      return EscholRecord.new(record)
+    end
+
     # If there's a resumption token, decode it, and grab the metadata prefix
     resump = nil
     if opts[:resumption_token]
@@ -110,13 +182,13 @@ class EscholModel < OAI::Provider::Model
       ) {
         #{resump ? '' : 'total'}
         more
-        nodes { id title updated }
+        nodes { #{itemFields} }
       }
     }).dig("items")
 
     # Map the results to OAI records
-    records = data['nodes'].map { |data|
-      EscholRecord.new(data)
+    records = data['nodes'].map { |record|
+      EscholRecord.new(record)
     }
 
     # And add a resumption token if there are more records.
@@ -136,4 +208,5 @@ class EscholProvider < OAI::Provider::Base
   sample_id 'qt4590m805'
   admin_email 'help@escholarship.org'
   source_model EscholModel.new
+  register_format OclcDublinCore.instance
 end
