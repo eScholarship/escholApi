@@ -5,6 +5,13 @@ STDOUT.write "\n================================================================
 class SinatraGraphql < Sinatra::Base
   set public_folder: 'public', static: true
 
+   # Compress things that can benefit
+  use Rack::Deflater,
+    :if => lambda { |env, status, headers, body|
+      # advice from https://www.itworld.com/article/2693941/cloud-computing/why-it-doesn-t-make-sense-to-gzip-all-content-from-your-web-server.html
+      return headers["Content-Length"].to_i > 1400
+    }
+
   get '/' do
     token = ""
     erb :layout, locals: {token: token}

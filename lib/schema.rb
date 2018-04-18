@@ -341,7 +341,7 @@ ItemTypeEnum = GraphQL::EnumType.define do
   value("ETD", "Electronic thesis/dissertation")
   value("MONOGRAPH", "A book / monograph")
   value("MULTIMEDIA", "Multimedia (e.g. video, audio, etc.)")
-  value("NON_TEXTUAL", "Other non-textual work")
+  value("NON-TEXTUAL", "Other non-textual work")
 end
 
 ###################################################################################################
