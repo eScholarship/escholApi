@@ -106,7 +106,7 @@ ItemType = GraphQL::ObjectType.define do
 
   field :type, !ItemTypeEnum, "Publication type; usually ARTICLE" do
     resolve -> (obj, args, ctx) {
-      obj.genre == "dissertation" ? "ETD" : obj.genre.upcase
+      obj.genre == "dissertation" ? "ETD" : obj.genre.upcase.gsub('-','_')
     }
   end
 
@@ -341,7 +341,7 @@ ItemTypeEnum = GraphQL::EnumType.define do
   value("ETD", "Electronic thesis/dissertation")
   value("MONOGRAPH", "A book / monograph")
   value("MULTIMEDIA", "Multimedia (e.g. video, audio, etc.)")
-  value("NON-TEXTUAL", "Other non-textual work")
+  value("NON_TEXTUAL", "Other non-textual work")
 end
 
 ###################################################################################################
