@@ -205,6 +205,7 @@ class EscholModel < OAI::Provider::Model
     data = apiQuery(%{
       items(
         order: UPDATED_DESC
+        first: 500
         #{resump ? ", more: \"#{resump.more}\"" : ''}
         #{!resump && opts[:from] && opts[:from].iso8601 != @earliest ? ", after: \"#{(opts[:from]-1).iso8601}\"" : ''}
         #{!resump && opts[:until] && opts[:until].iso8601 != @latest ? ", before: \"#{(opts[:until]+1).iso8601}\"" : ''}
