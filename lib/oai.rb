@@ -57,14 +57,14 @@ class EscholResumptionToken
   def to_xml
     xml = Builder::XmlMarkup.new
     attrs = (@total ? { completeListSize: @total } : {})
-    xml.resumptionToken "#{@opts[:metadata_prefix]}:#{@more}", **attrs
+    xml.resumptionToken "#{@opts[:metadata_prefix]}:#{opts[:set]}:#{@more}", **attrs
     xml.target!
   end
 
   # Decode a resumption token into the prefix and opaque 'more' string for the GraphQL API
   def self.decode(str)
-    str =~ /^([\w_]+):([\w\d]+)$/ or raise(OAI::ArgumentException.new)
-    new({ metadata_prefix: $1 }, nil, $2)
+    str =~ /^([\w_]+):([\w_]*):([\w]+)$/ or raise(OAI::ArgumentException.new)
+    new({ metadata_prefix: $1, set: $2.empty? ? nil : $2 }, nil, $3)
   end
 end
 
