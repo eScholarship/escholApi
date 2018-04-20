@@ -5,11 +5,28 @@ require 'time'
 
 require 'oai'
 
+# Subi controlled set of disciplines
+$disciplines = Set.new(["Life Sciences",
+                        "Medicine and Health Sciences",
+                        "Physical Sciences and Mathematics",
+                        "Engineering",
+                        "Social and Behavioral Sciences",
+                        "Arts and Humanities",
+                        "Law",
+                        "Business",
+                        "Architecture",
+                        "Education"])
+
 ###################################################################################################
 # Send a GraphQL query to the main API, returning the JSON results
-def apiQuery(query, **args)
-  args.empty? and query = "query { #{query} }"
-  response = Schema.execute(query, variables: JSON.parse(args.to_json))
+def apiQuery(query, vars={})
+  if vars.empty?
+    query = "query { #{query} }"
+  else
+    query = "query(#{vars.map{|name, pair| "$#{name}: #{pair[0]}"}.join(", ")}) { #{query} }"
+  end
+  varHash = Hash[vars.map{|name,pair| [name.to_s, pair[1]]}]
+  response = Schema.execute(query, variables: varHash)
   response['errors'] and raise("Internal error (graphql): #{response['errors'][0]['message']}")
   response['data']
 end
@@ -155,13 +172,15 @@ class EscholModel < OAI::Provider::Model
     @latest = apiQuery("items(first:1, order:UPDATED_DESC) { nodes { updated } }").dig("items", "nodes", 0, "updated")
   end
 
-  # TODO
+  # We only advertise one set, "all", though we internally allow requests for most old sets.
   def sets
-    nil
+    return [OAI::Set.new({name: "all", spec: "all",
+                         description: "All records in the repository (equivalent to not specifying a set)."})]
   end
 
   # The main query method
   def find(selector, opts={})
+    puts "find: selector=#{selector} opts=#{opts}"
     itemFields = %{
       id
       updated
@@ -183,6 +202,7 @@ class EscholModel < OAI::Provider::Model
       issn
     }
 
+    # Individual item (e.g. GetRecord)
     if selector != :all
       selector.sub!("ark:/13030/", "")
       selector =~ /^qt\w{8}$/ or raise(OAI::IdException.new)
@@ -190,6 +210,18 @@ class EscholModel < OAI::Provider::Model
         item(id: "#{selector}") { #{itemFields} }
       }).dig("item")
       return EscholRecord.new(record)
+    end
+
+    # Check for setSpec
+    discSet = unitSet = nil
+    if opts[:set] && opts[:set] != "all"
+      if $disciplines.include?(opts[:set])
+        discSet = opts[:set]
+      elsif apiQuery("unit(id: $unitID) { name }", { unitID: ["ID!", opts[:set]] }).dig("unit", "name")
+        unitSet = opts[:set]
+      else
+        raise(OAI::NoMatchException.new)
+      end
     end
 
     # If there's a resumption token, decode it, and grab the metadata prefix
@@ -202,19 +234,35 @@ class EscholModel < OAI::Provider::Model
     # Now form a GraphQL query to capture the data we want.
     # A note on the time parameters below: the OAI library we're using fills in :from and :until
     # even if they weren't specified in the URL; for efficience we filter them out in that case.
-    data = apiQuery(%{
+    queryParams = {}
+    discSet and queryParams[:discTag] = ["String!", "discipline:#{discSet}"]
+    resump and queryParams[:more] = ["String", resump.more]
+    itemQuery = %{
       items(
         order: UPDATED_DESC
         first: 500
-        #{resump ? ", more: \"#{resump.more}\"" : ''}
+        #{resump ? ", more: $more" : ''}
         #{!resump && opts[:from] && opts[:from].iso8601 != @earliest ? ", after: \"#{(opts[:from]-1).iso8601}\"" : ''}
         #{!resump && opts[:until] && opts[:until].iso8601 != @latest ? ", before: \"#{(opts[:until]+1).iso8601}\"" : ''}
+        #{discSet ? ", tag: $discTag" : ''}
       ) {
         #{resump ? '' : 'total'}
         more
         nodes { #{itemFields} }
       }
-    }).dig("items")
+    }
+
+    # Add unit query if a unit set was specified
+    outerQuery = itemQuery
+    if unitSet
+      queryParams[:unitID] = ["ID!", unitSet]
+      outerQuery = "unit(id: $unitID) { #{itemQuery} }"
+    end
+
+    # Run it and drill down to the list of items
+    data = apiQuery(outerQuery, queryParams)
+    unitSet and data = data['unit']
+    data = data['items']
 
     # Map the results to OAI records
     records = data['nodes'].map { |record|

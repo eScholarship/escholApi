@@ -104,7 +104,7 @@ ItemType = GraphQL::ObjectType.define do
     resolve -> (obj, args, ctx) { obj.status.upcase }
   end
 
-  field :type, !ItemTypeEnum, "Publication type; usually ARTICLE" do
+  field :type, !ItemTypeEnum, "Publication type; majority are ARTICLE" do
     resolve -> (obj, args, ctx) {
       obj.genre == "dissertation" ? "ETD" : obj.genre.upcase.gsub('-','_')
     }
@@ -243,9 +243,9 @@ ItemType = GraphQL::ObjectType.define do
   field :tags, types[types.String], "Unified disciplines, keywords, and subjects" do
     resolve -> (obj, args, ctx) {
       attrs = obj.attrs ? JSON.parse(obj.attrs) : {}
-      out = (attrs['disciplines'] || []) +
-            (attrs['keywords'] || []) +
-            (attrs['subjects'] || [])
+      out = (attrs['disciplines'] || []).map{|s| "discipline:#{s}"} +
+            (attrs['keywords'] || []).map{|s| "keyword:#{s}"} +
+            (attrs['subjects'] || []).map{|s| "subject:#{s}"}
       out.empty? ? nil : out
     }
   end
@@ -395,11 +395,15 @@ class ItemsData
 
     # Matching on tags if specified
     if args['tag']
-      query = query.where(Sequel.lit(%{
-        json_search(attrs, 'all', ?, null, '$.disciplines') is not null or
-        json_search(attrs, 'all', ?, null, '$.keywords') is not null or
-        json_search(attrs, 'all', ?, null, '$.subjects') is not null
-      }, args['tag'], args['tag'], args['tag']))
+      if args['tag'] =~ /^discipline:(.*)/
+        query = query.where(Sequel.lit(%{json_search(attrs, 'all', ?, null, '$.disciplines') is not null}, $1))
+      elsif args['tag'] =~ /^keyword:(.*)/
+        query = query.where(Sequel.lit(%{json_search(attrs, 'all', ?, null, '$.keywords') is not null}, $1))
+      elsif args['tag'] =~ /^keyword:(.*)/
+        query = query.where(Sequel.lit(%{json_search(attrs, 'all', ?, null, '$.subjects') is not null}, $1))
+      else
+        raise("'tag' must start with 'discipline:', 'keyword:', or 'subject:'")
+      end
     end
 
     @query = query
