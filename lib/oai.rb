@@ -173,10 +173,9 @@ class EscholModel < OAI::Provider::Model
     @latest = apiQuery("items(first:1, order:UPDATED_DESC) { nodes { updated } }").dig("items", "nodes", 0, "updated")
   end
 
-  # We only advertise one set, "all", though we internally allow requests for most old sets.
+  # We only advertise one set, "everything", though we internally allow requests for most old sets.
   def sets
-    return [OAI::Set.new({name: "all", spec: "all",
-                         description: "All records in the repository (equivalent to not specifying a set)."})]
+    return [OAI::Set.new({name: "everything", spec: "everything"})]
   end
 
   # The main query method
@@ -215,7 +214,7 @@ class EscholModel < OAI::Provider::Model
 
     # Check for setSpec
     discSet = unitSet = nil
-    if opts[:set] && opts[:set] != "all"
+    if opts[:set] && opts[:set] != "everything"
       if $disciplines.include?(opts[:set])
         discSet = opts[:set]
       elsif apiQuery("unit(id: $unitID) { name }", { unitID: ["ID!", opts[:set]] }).dig("unit", "name")

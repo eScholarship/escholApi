@@ -34,7 +34,7 @@ class SinatraGraphql < Sinatra::Base
 
   def serveOAI
     Thread.current[:graphqlApi] = "http://#{request.host}:3000/graphql"
-    content_type 'text/xml'
+    content_type 'text/xml;charset=utf-8'
     provider = EscholProvider.new
     provider.process_request(params)
   end
