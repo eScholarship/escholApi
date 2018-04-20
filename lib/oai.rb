@@ -56,7 +56,8 @@ class EscholResumptionToken
   # Encode the resumption token to pass to the client
   def to_xml
     xml = Builder::XmlMarkup.new
-    attrs = (@total ? { completeListSize: @total } : {})
+    attrs = { expirationDate: Time.now.utc.iso8601 }
+    @total and attrs[:completeListSize] = @total
     xml.resumptionToken "#{@opts[:metadata_prefix]}:#{opts[:set]}:#{@more}", **attrs
     xml.target!
   end
@@ -76,7 +77,7 @@ class EscholRecord
   end
 
   def id
-    @data['id'].sub(%r{ark:/}, '')  # ark:/ prefix is automatically added by outer OAI library
+    @data['id']
   end
 
   def updated_at
@@ -231,6 +232,14 @@ class EscholModel < OAI::Provider::Model
       opts[:metadata_prefix] = resump.opts[:metadata_prefix]
     end
 
+    # For incremental harvest, make sure we include at least 24 hours of data. This is because most
+    # clients assume we have day granularity, despite what we advertise.
+    fromTime = !resump && opts[:from] && opts[:from].iso8601 != @earliest ? opts[:from] : nil
+    untilTime = !resump && opts[:until] && opts[:until].iso8601 != @latest ? opts[:until] : nil
+    if fromTime && untilTime && untilTime < (fromTime + 24*60*60)
+      untilTime = fromTime + 24*60*60
+    end
+
     # Now form a GraphQL query to capture the data we want.
     # A note on the time parameters below: the OAI library we're using fills in :from and :until
     # even if they weren't specified in the URL; for efficience we filter them out in that case.
@@ -242,8 +251,8 @@ class EscholModel < OAI::Provider::Model
         order: UPDATED_DESC
         first: 500
         #{resump ? ", more: $more" : ''}
-        #{!resump && opts[:from] && opts[:from].iso8601 != @earliest ? ", after: \"#{(opts[:from]-1).iso8601}\"" : ''}
-        #{!resump && opts[:until] && opts[:until].iso8601 != @latest ? ", before: \"#{(opts[:until]+1).iso8601}\"" : ''}
+        #{fromTime ? ", after: \"#{(fromTime-1).iso8601}\"" : ''}
+        #{untilTime ? ", before: \"#{untilTime.iso8601}\"" : ''}
         #{discSet ? ", tag: $discTag" : ''}
       ) {
         #{resump ? '' : 'total'}
@@ -282,9 +291,10 @@ end
 class EscholProvider < OAI::Provider::Base
   repository_name 'eScholarship'
   repository_url 'https://escholarship.org/oai'
-  record_prefix 'ark:'
+  record_prefix 'escholarship.org'
   sample_id 'qt4590m805'
   admin_email 'help@escholarship.org'
   source_model EscholModel.new
   register_format OclcDublinCore.instance
+  update_granularity OAI::Const::Granularity::HIGH
 end
