@@ -56,7 +56,7 @@ class EscholResumptionToken
   # Encode the resumption token to pass to the client
   def to_xml
     xml = Builder::XmlMarkup.new
-    attrs = { expirationDate: Time.now.utc.iso8601 }
+    attrs = { expirationDate: (Time.now + 24*60*60).utc.iso8601 }
     @total and attrs[:completeListSize] = @total
     xml.resumptionToken "#{@opts[:metadata_prefix]}:#{opts[:set]}:#{@more}", **attrs
     xml.target!
@@ -232,8 +232,9 @@ class EscholModel < OAI::Provider::Model
       opts[:metadata_prefix] = resump.opts[:metadata_prefix]
     end
 
-    # For incremental harvest, make sure we include at least 24 hours of data. This is because most
-    # clients assume we have day granularity, despite what we advertise.
+    # For incremental harvest, make sure we include at least 24 hours of data. This is because with
+    # the Ruby OAI library it's hard for us to differentiate the actual granularity of the client
+    # request, because we receive a Time here.
     fromTime = !resump && opts[:from] && opts[:from].iso8601 != @earliest ? opts[:from] : nil
     untilTime = !resump && opts[:until] && opts[:until].iso8601 != @latest ? opts[:until] : nil
     if fromTime && untilTime && untilTime < (fromTime + 24*60*60)
@@ -291,10 +292,10 @@ end
 class EscholProvider < OAI::Provider::Base
   repository_name 'eScholarship'
   repository_url 'https://escholarship.org/oai'
-  record_prefix 'escholarship.org'
-  sample_id 'qt4590m805'
+  record_prefix 'oai:escholarship.org'
+  sample_id 'ark:/13030/qt4590m805'
   admin_email 'help@escholarship.org'
   source_model EscholModel.new
   register_format OclcDublinCore.instance
-  update_granularity OAI::Const::Granularity::HIGH
+  update_granularity OAI::Const::Granularity::LOW
 end
