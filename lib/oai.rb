@@ -277,7 +277,22 @@ class EscholModel < OAI::Provider::Model
 
   # We only advertise one set, "everything", though we internally allow requests for most old sets.
   def sets
-    return [OAI::Set.new({name: "everything", spec: "everything"})]
+    header_spec = {
+      'xmlns:oai_dc' => "http://www.openarchives.org/OAI/2.0/oai_dc/",
+      'xmlns:dc' => "http://purl.org/dc/elements/1.1/",
+      'xmlns:xsi' => "http://www.w3.org/2001/XMLSchema-instance",
+      'xsi:schemaLocation' =>
+        %{http://www.openarchives.org/OAI/2.0/oai_dc/
+          http://www.openarchives.org/OAI/2.0/oai_dc.xsd}.gsub(/\s+/, ' ')
+    }
+    xml = Builder::XmlMarkup.new
+    xml.tag!("oai_dc:dc", header_spec) {
+      xml.tag!("dc:description", %{
+        This set contains all items in the repository (equivalent to not specifying a set).
+        Provided for backward compatibility with robots that crawl every set.})
+    }
+    xml.target!
+    return [OAI::Set.new({name: "everything", spec: "everything", description: xml.target!})]
   end
 
   # The main query method
