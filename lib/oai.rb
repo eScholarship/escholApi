@@ -1,6 +1,7 @@
 # An OAI-PMH provider layer, wrapped around eScholarship's main GraphQL API
 
 require 'date'
+require 'pp'
 require 'time'
 
 require 'oai'
@@ -38,6 +39,16 @@ class OclcDublinCore < OAI::Provider::Metadata::Format
     @schema = 'http://www.escholarship.org/schema/oclc_dc.xsd'
     @namespace = 'http://xtf.cdlib.org/oclc_dc'
     @element_namespace = 'dc'
+  end
+end
+
+###################################################################################################
+class Marc21 < OAI::Provider::Metadata::Format
+  def initialize
+    @prefix = 'marc21'
+    @schema = 'http://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd'
+    @namespace = 'http://www.loc.gov/MARC21/slim'
+    @element_namespace = 'marc21'
   end
 end
 
@@ -91,7 +102,7 @@ class EscholRecord
     (@data.dig('contributors', 'nodes')||[]).each { |contrib| xml.tag!("dc:contributor", contrib['name']) }
     xml.tag!("dc:date", @data['published'])
     @data['abstract'] and xml.tag!("dc:description", @data['abstract'].gsub(/<\/?[^>]*>/, ""))  # strip HTML tags
-    (@data['subjects']||[]).each { |subj| xml.tag!("dc:subject", subj) }
+    ((@data['subjects']||[]) + (@data['keywords']||[])).each { |subj| xml.tag!("dc:subject", subj) }
     @data['language'] and xml.tag!("dc:language", @data['language'])
     @data['contentType'] and xml.tag!("dc:format", @data['contentType'])
     xml.tag!("dc:rights", @data['rights'] || 'public')
@@ -150,11 +161,102 @@ class EscholRecord
         @data['issue'] and issData << "iss #{@data['issue']}"
         @data['fpage'] and issData << [@data['fpage'], @data['lpage']].compact.join("-")
         xml.tag!("dc:source", issData.join(", "))
-        xml.tag!("dc:source", @data['issn'])
+        @data['issn'] and xml.tag!("dc:source", @data['issn'])
       end
 
       # Second version of identifier for OCLC harvesting
       xml.tag!("dc:identifier", "https://escholarship.org/uc/item/#{@data['id'].sub(%r{^ark:/13030/qt}, '')}")
+    }
+    xml.target!
+  end
+
+  def to_marc21
+    xml = Builder::XmlMarkup.new
+    header_spec = {
+      'xmlns' => "http://www.loc.gov/MARC21/slim",
+      'xmlns:xsi' => "http://www.w3.org/2001/XMLSchema-instance",
+      'xsi:schemaLocation' =>
+        %{http://www.loc.gov/MARC21/slim
+          http://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd}.gsub(/\s+/, ' ')
+    }
+    xml.record(header_spec.merge({'type' => 'Bibliographic'})) {
+      xml.leader "am 3u"
+      if @data['journal']
+        xml.datafield(tag: "773", ind1: "0", ind2: " ") {
+          xml.subfield(@data['journal'], code: "t")
+          voliss = [@data['volume'] ? "Vol. #{@data['volume']}" : nil,
+                    @data['issue'] ? "no. #{@data['issue']}" : nil].compact.join(", ")
+          pubDate = Date.parse(@data['published'])
+          coverage = @data['fpage'] ? [@data['fpage'], @data['lpage']].compact.join("-") : ''
+          xml.subfield("#{voliss} (#{Date::ABBR_MONTHNAMES[pubDate.month]}. #{pubDate.year}) #{coverage}".strip, code: 'g')
+          @data['issn'] and xml.subfield(@data['issn'], code: 'x')
+        }
+      end
+
+      # Extra publisher field
+      xml.datafield(tag: "260", ind1: " ", ind2: " ") {
+        xml.subfield("eScholarship, University of California", code: "b")
+      }
+
+      # Item URL
+      xml.datafield(tag: "856", ind1: "4", ind2: "0") {
+        xml.subfield("https://escholarship.org/uc/item/#{@data['id'].sub(%r{^ark:/13030/qt}, '')}", code: "u")
+      }
+
+      # Authors
+      (@data.dig('authors', 'nodes')||[]).each { |auth|
+        xml.datafield(tag: "720", ind1: " ", ind2: " ") {
+          xml.subfield(auth['name'], code: "a")
+          xml.subfield("author", code: "e")
+        }
+      }
+
+      # Date
+      xml.datafield(tag: "260", ind1: " ", ind2: " ") {
+        xml.subfield(@data['published'], code: "c")
+      }
+
+      if @data['abstract']
+        xml.datafield(tag: "520", ind1: " ", ind2: " ") {
+          xml.subfield(@data['abstract'].gsub(/<\/?[^>]*>/, ""), code: "a")
+        }
+      end
+
+      if @data['language']
+        xml.datafield(tag: "546", ind1: " ", ind2: " ") {
+          xml.subfield(@data['language'], code: "a")
+        }
+      end
+
+      if @data['publisher']
+        xml.datafield(tag: "260", ind1: " ", ind2: " ") {
+          xml.subfield(@data['publisher'], code: "b")
+        }
+      end
+
+      # Rights
+      xml.datafield(tag: "540", ind1: " ", ind2: " ") {
+        xml.subfield(@data['rights'] || 'public', code: "a")
+      }
+
+      # Lump subjects and keywords together
+      ((@data['subjects']||[]) + (@data['keywords']||[])).each { |subj|
+        xml.datafield(tag: "653", ind1: " ", ind2: " ") {
+          xml.subfield(subj, code: "a")
+        }
+      }
+
+      if @data['title']
+        xml.datafield(tag: "245", ind1: "0", ind2: "0") {
+          xml.subfield(@data['title'].gsub(/<\/?[^>]*>/, ""), code: "a")
+        }
+      end
+
+      # Publication type
+      xml.datafield(tag: "655", ind1: "7", ind2: " ") {
+        xml.subfield(@data['type'].downcase, code: "a")
+        xml.subfield("local", code: "2")
+      }
     }
     xml.target!
   end
@@ -190,6 +292,7 @@ class EscholModel < OAI::Provider::Model
       authors { nodes { name } }
       contributors { nodes { name } }
       subjects
+      keywords
       language
       type
       contentType
@@ -296,5 +399,6 @@ class EscholProvider < OAI::Provider::Base
   admin_email 'help@escholarship.org'
   source_model EscholModel.new
   register_format OclcDublinCore.instance
+  register_format Marc21.instance
   update_granularity OAI::Const::Granularity::LOW
 end
