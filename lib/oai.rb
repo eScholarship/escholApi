@@ -189,7 +189,7 @@ class EscholRecord
           http://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd}.gsub(/\s+/, ' ')
     }
     xml.record(header_spec.merge({'type' => 'Bibliographic'})) {
-      xml.leader "am 3u"
+      xml.leader "      am         3u     "
       if @data['journal']
         xml.datafield(tag: "773", ind1: "0", ind2: " ") {
           xml.subfield(@data['journal'], code: "t")
