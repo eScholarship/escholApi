@@ -65,10 +65,11 @@ end
 # We use a special resumption token class, since most of the actual work of resumption encode/
 # decode is done within the GraphQL API.
 class EscholResumptionToken
-  attr_reader :opts, :total, :more
+  attr_reader :opts, :count, :total, :more
 
-  def initialize(opts, total, more)
+  def initialize(opts, count, total, more)
     @opts = opts
+    @count = count
     @total = total
     @more = more
   end
@@ -76,16 +77,18 @@ class EscholResumptionToken
   # Encode the resumption token to pass to the client
   def to_xml
     xml = Builder::XmlMarkup.new
-    attrs = { expirationDate: (Time.now + 24*60*60).utc.iso8601 }
-    @total and attrs[:completeListSize] = @total
-    xml.resumptionToken "#{@opts[:metadata_prefix]}:#{opts[:set]}:#{@more}", **attrs
+    xml.resumptionToken "#{@opts[:metadata_prefix]}:#{opts[:set]}:#{count}:#{total}:#{@more}", {
+      expirationDate: (Time.now + 24*60*60).utc.iso8601,
+      cursor: @count,
+      total: @total
+    }
     xml.target!
   end
 
   # Decode a resumption token into the prefix and opaque 'more' string for the GraphQL API
   def self.decode(str)
-    str =~ /^([\w_]+):([\w_]*):([\w]+)$/ or raise(OAI::ArgumentException.new)
-    new({ metadata_prefix: $1, set: $2.empty? ? nil : $2 }, nil, $3)
+    str =~ /^([\w_]+):([\w_]*):(\d+):(\d+):([\w]+)$/ or raise(OAI::ArgumentException.new)
+    new({ metadata_prefix: $1, set: $2.empty? ? nil : $2 }, $3.to_i, $4.to_i, $5)
   end
 end
 
@@ -391,7 +394,10 @@ class EscholModel < OAI::Provider::Model
 
     # And add a resumption token if there are more records.
     if data['more']
-      OAI::Provider::PartialResult.new(records, EscholResumptionToken.new(opts, data['total'], data['more']))
+      OAI::Provider::PartialResult.new(records, EscholResumptionToken.new(opts,
+          ((resump && resump.count) || 0) + data['nodes'].length,   # new count
+          data['total'] || (resump && resump.total),                # total
+          data['more']))
     else
       records
     end
