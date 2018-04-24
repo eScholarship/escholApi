@@ -10,6 +10,7 @@ tmp/
 .mysqlProxySock
 *.out
 *.sql_log
+escholApi.pid
 
 # Elastic Beanstalk Files
 .elasticbeanstalk/*
