@@ -80,7 +80,7 @@ class EscholResumptionToken
     xml.resumptionToken "#{@opts[:metadata_prefix]}:#{opts[:set]}:#{count}:#{total}:#{@more}", {
       expirationDate: (Time.now + 24*60*60).utc.iso8601,
       cursor: @count,
-      total: @total
+      completeListSize: @total
     }
     xml.target!
   end
