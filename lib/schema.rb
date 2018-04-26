@@ -217,6 +217,12 @@ ItemType = GraphQL::ObjectType.define do
     }
   end
 
+  field :proceedings, types.String, "Proceedings within which item appears (if any)" do
+    resolve -> (obj, args, ctx) {
+      (obj.attrs ? JSON.parse(obj.attrs) : {})['proceedings']
+    }
+  end
+
   field :contributors, ContributorsType, "Editors, advisors, etc. (if any)" do
     argument :first, types.Int, default_value: 100, prepare: ->(val, ctx) {
       (val.nil? || (val >= 1 && val <= 500)) or return GraphQL::ExecutionError.new("'first' must be in range 1..500")
@@ -268,6 +274,13 @@ ItemType = GraphQL::ObjectType.define do
     }
   end
 
+  field :grants, types[types.String], "Funding grants linked to this item" do
+    resolve -> (obj, args, ctx) {
+      grants = (obj.attrs ? JSON.parse(obj.attrs) : {})['grants']
+      grants ? grants.map { |gr| gr['name'] } : nil
+    }
+  end
+
   field :language, types.String, "Language specification (ISO 639-2 code)" do
     resolve -> (obj, args, ctx) {
       (obj.attrs ? JSON.parse(obj.attrs) : {})['language']
@@ -308,6 +321,82 @@ ItemType = GraphQL::ObjectType.define do
       end
     }
   end
+
+  field :source, types.String, "Source system within the eScholarship environment" do
+    resolve -> (obj, args, ctx) {
+      obj.source
+    }
+  end
+
+  field :ucpmsPubType, types.String, "If publication originated from UCPMS, the type within that system" do
+    resolve -> (obj, args, ctx) {
+      (obj.attrs ? JSON.parse(obj.attrs) : {})['uc_pms_pub_type']
+    }
+  end
+
+  field :localIDs, types[LocalIDType], "Local identifiers, e.g. PubMed ID, LBNL, etc." do
+    resolve -> (obj, args, ctx) {
+      attrs = obj.attrs ? JSON.parse(obj.attrs) : {}
+      ids = attrs['local_ids'] || []
+      attrs['doi'] and ids.unshift({"type" => "doi", "id" => attrs['doi']})
+      ids.empty? ? nil : ids
+    }
+  end
+
+  field :externalLinks, types[types.String], "Published web location external to eScholarshp" do
+    resolve -> (obj, args, ctx) {
+      (obj.attrs ? JSON.parse(obj.attrs) : {})['pub_web_loc']
+    }
+  end
+
+  field :bookTitle, types.String, "Title of the book within which this item appears" do
+    resolve -> (obj, args, ctx) {
+      (obj.attrs ? JSON.parse(obj.attrs) : {})['book_title']
+    }
+  end
+end
+
+###################################################################################################
+LocalIDType = GraphQL::ObjectType.define do
+  name "LocalID"
+  description "Local item identifier, e.g. PubMed ID, LBNL ID, etc."
+
+  field :id, !types.String, "The identifier string" do
+    resolve -> (obj, args, ctx) { obj['id'] }
+  end
+
+  field :scheme, !ItemIDSchemeEnum, "The scheme under which the identifier was minted" do
+    resolve -> (obj, args, ctx) {
+      case obj['type']
+        when 'doi';          "DOI"
+        when 'lbnl';         "LBNL_PUB_ID"
+        when 'oa_harvester'; "OA_PUB_ID"
+        else                 "OTHER_ID"
+      end
+    }
+  end
+
+  field :subScheme, types.String, "If scheme is OTHER_ID, this will be more specific" do
+    resolve -> (obj, args, ctx) {
+      case obj['type']
+        when 'doi';          nil
+        when 'lbnl';         nil
+        when 'oa_harvester'; nil
+        else                 obj['type']
+      end
+    }
+  end
+end
+
+###################################################################################################
+ItemIDSchemeEnum = GraphQL::EnumType.define do
+  name "ItemIDScheme"
+  description "Ordering for item list results"
+  value("ARK", "eSchol (ark:/13030/qt...) or Merritt ARK")
+  value("DOI", "A Digital Object Identifier, with or w/o http://dx.doi.org prefix")
+  value("LBNL_PUB_ID", "LBNL-internal publication ID")
+  value("OA_PUB_ID", "Pub ID on oapolicy.universityofcalifornia.edu")
+  value("OTHER_ID", "All other identifiers")
 end
 
 ###################################################################################################
