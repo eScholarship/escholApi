@@ -12,9 +12,13 @@ class SinatraGraphql < Sinatra::Base
       return headers["Content-Length"].to_i > 1400
     }
 
-  get '/graphql/explore' do
+  get '/graphql/iql' do
     token = ""
     erb :layout, locals: {token: token}
+  end
+
+  get %r{/graphql/iql/(.*)} do
+    call env.merge("PATH_INFO" => "/#{params['captures'][0]}")
   end
 
   get '/chk' do
@@ -22,7 +26,7 @@ class SinatraGraphql < Sinatra::Base
   end
 
   get '/graphql' do
-    params['query'] or redirect(to('/graphql/explore'))
+    params['query'] or redirect(to('/graphql/iql'))
     result = Schema.execute(
       params['query'],
       variables: params['variables']

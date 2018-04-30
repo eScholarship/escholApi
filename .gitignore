@@ -6,6 +6,7 @@ logs/
 node_modules/
 tmp/
 .DS_Store
+eboptions*
 *.log
 .mysqlProxySock
 *.out
