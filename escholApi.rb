@@ -22,7 +22,7 @@ class SinatraGraphql < Sinatra::Base
   end
 
   get '/chk' do
-    "okay"
+    "ok"
   end
 
   get '/graphql' do
