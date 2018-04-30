@@ -5,7 +5,6 @@ gem 'sinatra', '>= 2.0.1'
 
 # Database Stack
 gem 'sequel'
-gem 'sqlite3'
 gem 'puma'
 gem 'colorize'
 gem 'rack-protection'
