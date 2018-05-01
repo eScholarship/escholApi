@@ -345,7 +345,7 @@ ItemType = GraphQL::ObjectType.define do
     }
   end
 
-  field :externalLinks, types[types.String], "Published web location external to eScholarshp" do
+  field :externalLinks, types[types.String], "Published web location(s) external to eScholarshp" do
     resolve -> (obj, args, ctx) {
       (obj.attrs ? JSON.parse(obj.attrs) : {})['pub_web_loc']
     }
