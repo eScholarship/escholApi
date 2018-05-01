@@ -251,7 +251,9 @@ ItemType = GraphQL::ObjectType.define do
       attrs = obj.attrs ? JSON.parse(obj.attrs) : {}
       out = (attrs['disciplines'] || []).map{|s| "discipline:#{s}"} +
             (attrs['keywords'] || []).map{|s| "keyword:#{s}"} +
-            (attrs['subjects'] || []).map{|s| "subject:#{s}"}
+            (attrs['subjects'] || []).map{|s| "subject:#{s}"} +
+            (attrs['grants'] || []).map{|s| "grant:#{s['name']}"} +
+            ["type:#{obj.genre.sub("dissertation", "etd").upcase.gsub('-','_')}"]
       out.empty? ? nil : out
     }
   end
@@ -470,29 +472,36 @@ class ItemsData
     query = query.order(ascending ? field : Sequel::desc(field),
                         ascending ? :id   : Sequel::desc(:id))
 
+    # Apply limits as specified
+    args['before'] and query = query.where(Sequel.lit("#{field} < ?", args['before']))
+    args['after']  and query = query.where(Sequel.lit("#{field} > ?", args['after']))
+
+    # Matching on tags if specified
+    (args['tags'] || []).each { |tag|
+      if tag =~ /^discipline:(.*)/
+        query = query.where(Sequel.lit(%{json_search(attrs, 'all', ?, null, '$.disciplines') is not null}, $1))
+      elsif tag =~ /^keyword:(.*)/
+        query = query.where(Sequel.lit(%{lower(attrs->"$.keywords") like ?}, "%#{$1.downcase}%"))
+      elsif tag =~ /^subject:(.*)/
+        query = query.where(Sequel.lit(%{lower(attrs->"$.subjects") like ?}, "%#{$1.downcase}%"))
+      elsif tag =~ /^grant:(.*)/
+        query = query.where(Sequel.lit(%{lower(attrs->"$.grants") like ?}, "%#{$1.downcase}%"))
+      elsif tag =~ /^type:(.*)/
+        query = query.where(genre: $1.downcase == "etd" ? ["etd", "dissertation"] : $1.downcase.gsub("_", "-"))
+      else
+        raise("tag must start with 'discipline:', 'keyword:', 'subject:', or 'grant:'")
+      end
+    }
+
+    # Record the base query so if 'total' is requested we count without paging
+    @baseQuery = query
+
     # If this is a 'more' query, add extra constraints so we get the next page (that is,
     # starting just after the end of the last page)
     if args['lastID']
       dir = ascending ? '>' : '<'
       query = query.where(Sequel.lit("#{field} #{dir} ? or (#{field} = ? and id #{dir} ?)",
                                      args['lastDate'], args['lastDate'], args['lastID']))
-    end
-
-    # Apply limits as specified
-    args['before'] and query = query.where(Sequel.lit("#{field} < ?", args['before']))
-    args['after']  and query = query.where(Sequel.lit("#{field} > ?", args['after']))
-
-    # Matching on tags if specified
-    if args['tag']
-      if args['tag'] =~ /^discipline:(.*)/
-        query = query.where(Sequel.lit(%{json_search(attrs, 'all', ?, null, '$.disciplines') is not null}, $1))
-      elsif args['tag'] =~ /^keyword:(.*)/
-        query = query.where(Sequel.lit(%{json_search(attrs, 'all', ?, null, '$.keywords') is not null}, $1))
-      elsif args['tag'] =~ /^keyword:(.*)/
-        query = query.where(Sequel.lit(%{json_search(attrs, 'all', ?, null, '$.subjects') is not null}, $1))
-      else
-        raise("'tag' must start with 'discipline:', 'keyword:', or 'subject:'")
-      end
     end
 
     @query = query
@@ -502,7 +511,7 @@ class ItemsData
   end
 
   def total
-    @count ||= @query.count
+    @count ||= @baseQuery.count
   end
 
   def nodes
@@ -692,15 +701,22 @@ UnitType = GraphQL::ObjectType.define do
   field :name, !types.String, "Human-readable name of the unit"
 
   field :items, ItemsType, "Query items in the unit (incl. children)" do
-    argument :first, types.Int, default_value: 100, prepare: ->(val, ctx) {
-      (val.nil? || (val >= 1 && val <= 500)) or return GraphQL::ExecutionError.new("'first' must be in range 1..500")
-      return val
-    }
-    argument :more, types.String
-    argument :before, DateTimeType
-    argument :after, DateTimeType
-    argument :tag, types.String
-    argument :order, ItemOrderEnum, default_value: "ADDED_DESC"
+    argument :first, types.Int, default_value: 100,
+      description: "Number of results to return (values 1..500 are valid)",
+      prepare: ->(val, ctx) {
+        (val.nil? || (val >= 1 && val <= 500)) or return GraphQL::ExecutionError.new("'first' must be in range 1..500")
+        return val
+      }
+    argument :more, types.String, description: %{Opaque string obtained from the `more` field of a prior result,
+                                                 and used to fetch the next set of nodes.
+                                                 Do not specify any other arguments with this one; the string already
+                                                 encodes the prior set of arguments.}.unindent
+    argument :before, DateTimeType, description: "Return only items *before* this date/time (within the `order` ordering)"
+    argument :after, DateTimeType, description: "Return only items *after* this date/time (within the `order` ordering)"
+    argument :tags, types[types.String], description: "Subset items with keyword, subject, discipline, grant, and/or type"
+    argument :order, ItemOrderEnum, default_value: "ADDED_DESC",
+             description: %{Sets the ordering of results
+                            (and affects interpretation of the `before` and `after` arguments)}
     resolve -> (obj, args, ctx) { ItemsData.new(args, obj.id) }
   end
 
@@ -731,10 +747,10 @@ QueryType = GraphQL::ObjectType.define do
                                                  encodes the prior set of arguments.}.unindent
     argument :before, DateTimeType, description: "Return only items *before* this date/time (within the `order` ordering)"
     argument :after, DateTimeType, description: "Return only items *after* this date/time (within the `order` ordering)"
-    argument :tag, types.String, description: "Subset items with keyword, subject, or discipline matching this tag"
+    argument :tags, types[types.String], description: "Subset items with keyword, subject, discipline, grant, and/or type"
     argument :order, ItemOrderEnum, default_value: "ADDED_DESC",
              description: %{Sets the ordering of results
-                            (and affect interpretation of the `before` and `after` arguments)}
+                            (and affects interpretation of the `before` and `after` arguments)}
     resolve -> (obj, args, ctx) { ItemsData.new(args) }
   end
 

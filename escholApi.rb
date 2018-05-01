@@ -28,13 +28,13 @@ class SinatraGraphql < Sinatra::Base
   get '/graphql' do
     params['query'] or redirect(to('/graphql/iql'))
     content_type :json
-    Schema.execute(params['query'], params['variables']).to_json
+    Schema.execute(params['query'], variables: params['variables']).to_json
   end
 
   post '/graphql' do
     params =  JSON.parse(request.body.read)
     content_type :json
-    Schema.execute(params['query'], params['variables']).to_json
+    Schema.execute(params['query'], variables: params['variables']).to_json
   end
 
   def serveOAI

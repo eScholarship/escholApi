@@ -6,7 +6,7 @@ type Query {
   "Get item's info given its identifier"              item(id: ID!, scheme: ItemIdScheme = ARK): Item
   "Query a list of all items"                         items(order: ItemOrder = UPDATED_DESC,
                                                             before: DateTime, after: DateTime,
-                                                            tag: String, first: Int = 100, more: Cursor): Items!
+                                                            tags: [String], first: Int = 100, more: Cursor): Items!
   "Get a unit given its identifier"                   unit(id: ID!): Unit
 }
 
@@ -24,7 +24,7 @@ type Items {
 "A single work or publication within eScholarship"
 type Item {
   "The eschol ARK for this item: 'ark:/13030/qt...'"  id: ID!
-  "Title of the item (w/ embedded HTML tags)"         title: String!
+  "Title of the item (w/ embedded HTML tag)"         title: String!
   "Publication status; usually PUBLISHED"             status: ItemStatus!
   "Publication type; usually ARTICLE"                 type: ItemType!
   "Date the item was published"                       published: Date!
@@ -57,9 +57,9 @@ type Unit {
   "Type of unit, e.g. ORU, SERIES, JOURNAL"           type: UnitType!
   "Hierarchical parent(s) (i.e. owning units)"        parents: [Unit]
   "Hierarchical children (i.e. sub-units)"            children: [Unit]
-  "Query items in the unit (incl. children)"          items(order: ItemOrder = UPDATED_DESC,
+  "Query items in the unit (incl. sub-units)"         items(order: ItemOrder = UPDATED_DESC,
                                                             before: DateTime, after: DateTime,
-                                                            tag: String, first: Int = 100, more: Cursor): Items!
+                                                            tags: [String], first: Int = 100, more: Cursor): Items!
 }
 
 "Type of unit within eScholarship"
