@@ -24,7 +24,7 @@ type Items {
 "A single work or publication within eScholarship"
 type Item {
   "The eschol ARK for this item: 'ark:/13030/qt...'"  id: ID!
-  "Title of the item (w/ embedded HTML tag)"         title: String!
+  "Title of the item (w/ embedded HTML tag)"          title: String!
   "Publication status; usually PUBLISHED"             status: ItemStatus!
   "Publication type; usually ARTICLE"                 type: ItemType!
   "Date the item was published"                       published: Date!
@@ -36,18 +36,28 @@ type Item {
   "Abstract (w/ embedded HTML tags)"                  abstract: String
   "All authors (can be long)"                         authors: Authors
   "Editors, advisors, etc. (if any)"                  contributors: Contributors
-  "The series/unit(s) associated with this item"      units: [Unit]
+  "The series/unit(s) associated with this item"      units: [Unit]!
   "Embargo expiration date (if status=EMBARGOED)"     embargoExpires: Date
   "License (none, or CC-BY-ND, etc.)"                 license: String!
   "Supplemental material (if any)"                    suppFiles: [SuppFile]
   "Local identifiers, e.g. PubMed ID, LBNL, etc."     localIDs: [LocalID]
-  "Unified disciplines, keywords, and subjects"       tags: [String]
+  "Unified disciplines, keywords, type, etc."         tags: [String]
   "Subject terms (unrestricted)"                      subjects: [String]
   "Keywords (unrestricted)"                           keywords: [String]
   "Disciplines (from a small set)"                    disciplines: [String]
   "Language specification (ISO 639-2 code)"           language: String
+  "Journal name within which item appears"            journal: String
+  "Journal volume number"                             volume: String
+  "Journal issue number"                              issue: String
+  "Journal ISSN"                                      issn: String
+  "Proceedings within which item appears (if any)"    proceedings: String
+  "Title of the book item appears in (if any)"        bookTitle: String
   "First page (e.g. within journal issue)"            fpage: String
   "Last page (e.g. within journal issue)"             lpage: String
+  "Funding grants linked to this item"                grants: [String]
+  "Source system within the eScholarship environment" source: String!
+  "Pub type within UCPMS (if source = oa_harvester)"  ucpmsPubType: String
+  "Published web location external to eScholarshp"    externalLinks: [String]
 }
 
 "A campus, department, series, or other organized unit within eScholarship"

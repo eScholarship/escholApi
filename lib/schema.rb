@@ -324,7 +324,7 @@ ItemType = GraphQL::ObjectType.define do
     }
   end
 
-  field :source, types.String, "Source system within the eScholarship environment" do
+  field :source, !types.String, "Source system within the eScholarship environment" do
     resolve -> (obj, args, ctx) {
       obj.source
     }
