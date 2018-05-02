@@ -65,11 +65,12 @@ end
 # We use a special resumption token class, since most of the actual work of resumption encode/
 # decode is done within the GraphQL API.
 class EscholResumptionToken
-  attr_reader :opts, :count, :total, :more
+  attr_reader :opts, :count, :nextCount, :total, :more
 
-  def initialize(opts, count, total, more)
+  def initialize(opts, count, nextCount, total, more)
     @opts = opts
     @count = count
+    @nextCount = nextCount
     @total = total
     @more = more
   end
@@ -77,7 +78,7 @@ class EscholResumptionToken
   # Encode the resumption token to pass to the client
   def to_xml
     xml = Builder::XmlMarkup.new
-    xml.resumptionToken "#{@opts[:metadata_prefix]}:#{opts[:set]}:#{count}:#{total}:#{@more}", {
+    xml.resumptionToken "#{@opts[:metadata_prefix]}:#{opts[:set]}:#{nextCount}:#{total}:#{@more}", {
       expirationDate: (Time.now + 24*60*60).utc.iso8601,
       cursor: @count,
       completeListSize: @total
@@ -88,7 +89,7 @@ class EscholResumptionToken
   # Decode a resumption token into the prefix and opaque 'more' string for the GraphQL API
   def self.decode(str)
     str =~ /^([\w_]+):([\w_]*):(\d+):(\d+):([\w]+)$/ or raise(OAI::ArgumentException.new)
-    new({ metadata_prefix: $1, set: $2.empty? ? nil : $2 }, $3.to_i, $4.to_i, $5)
+    new({ metadata_prefix: $1, set: $2.empty? ? nil : $2 }, $3.to_i, nil, $4.to_i, $5)
   end
 end
 
@@ -327,12 +328,18 @@ class EscholModel < OAI::Provider::Model
     end
 
     # Check for setSpec
-    discSet = unitSet = nil
+    queryParams = {}
+    tags = []
+    unitSet = nil
     if opts[:set] && opts[:set] != "everything"
       if $disciplines.include?(opts[:set])
-        discSet = opts[:set]
+        queryParams[:discTag] = ["String!", "discipline:#{discSet}"]
+        tags << "$discTag"
       elsif apiQuery("unit(id: $unitID) { name }", { unitID: ["ID!", opts[:set]] }).dig("unit", "name")
         unitSet = opts[:set]
+      elsif %w{ARTICLE CHAPTER ETD MONOGRAPH MULTIMEDIA NON_TEXTUAL}.include?(opts[:set])
+        queryParams[:typeTag] = ["String!", "type:#{opts[:set]}"]
+        tags << "$typeTag"
       else
         raise(OAI::NoMatchException.new)
       end
@@ -357,8 +364,6 @@ class EscholModel < OAI::Provider::Model
     # Now form a GraphQL query to capture the data we want.
     # A note on the time parameters below: the OAI library we're using fills in :from and :until
     # even if they weren't specified in the URL; for efficience we filter them out in that case.
-    queryParams = {}
-    discSet and queryParams[:discTag] = ["String!", "discipline:#{discSet}"]
     resump and queryParams[:more] = ["String", resump.more]
     itemQuery = %{
       items(
@@ -367,7 +372,7 @@ class EscholModel < OAI::Provider::Model
         #{resump ? ", more: $more" : ''}
         #{fromTime ? ", after: \"#{(fromTime-1).iso8601}\"" : ''}
         #{untilTime ? ", before: \"#{untilTime.iso8601}\"" : ''}
-        #{discSet ? ", tag: $discTag" : ''}
+        #{!tags.empty? ? ", tags: [#{tags.join(",")}]" : ''}
       ) {
         #{resump ? '' : 'total'}
         more
@@ -395,7 +400,8 @@ class EscholModel < OAI::Provider::Model
     # And add a resumption token if there are more records.
     if data['more']
       OAI::Provider::PartialResult.new(records, EscholResumptionToken.new(opts,
-          ((resump && resump.count) || 0) + data['nodes'].length,   # new count
+          (resump && resump.count) || 0,                            # current count
+          ((resump && resump.count) || 0) + data['nodes'].length,   # next count
           data['total'] || (resump && resump.total),                # total
           data['more']))
     else

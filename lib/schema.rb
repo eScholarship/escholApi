@@ -489,7 +489,7 @@ class ItemsData
       elsif tag =~ /^type:(.*)/
         query = query.where(genre: $1.downcase == "etd" ? ["etd", "dissertation"] : $1.downcase.gsub("_", "-"))
       else
-        raise("tag must start with 'discipline:', 'keyword:', 'subject:', or 'grant:'")
+        raise("tag must start with 'discipline:', 'keyword:', 'subject:', 'grant:', or 'type:'")
       end
     }
 
