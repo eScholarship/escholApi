@@ -1,4 +1,4 @@
-port ENV['PUMA_PORT']
+bind "tcp://0.0.0.0:#{ENV['PUMA_PORT']}"
 workers ENV['PUMA_WORKERS']
 threads 0, ENV['PUMA_THREADS']
 
