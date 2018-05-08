@@ -370,6 +370,7 @@ LocalIDType = GraphQL::ObjectType.define do
   field :scheme, !ItemIDSchemeEnum, "The scheme under which the identifier was minted" do
     resolve -> (obj, args, ctx) {
       case obj['type']
+        when 'merritt';      "ARK"
         when 'doi';          "DOI"
         when 'lbnl';         "LBNL_PUB_ID"
         when 'oa_harvester'; "OA_PUB_ID"
@@ -381,6 +382,7 @@ LocalIDType = GraphQL::ObjectType.define do
   field :subScheme, types.String, "If scheme is OTHER_ID, this will be more specific" do
     resolve -> (obj, args, ctx) {
       case obj['type']
+        when 'merritt';      "Merritt"
         when 'doi';          nil
         when 'lbnl';         nil
         when 'oa_harvester'; nil
@@ -731,7 +733,33 @@ QueryType = GraphQL::ObjectType.define do
 
   field :item, ItemType, "Get item's info given its identifier" do
     argument :id, !types.ID
-    resolve -> (obj, args, ctx) { Item[args["id"]] }
+    argument :scheme, ItemIDSchemeEnum
+    resolve -> (obj, args, ctx) {
+      scheme = args["scheme"] || "ARK"
+      id = args["id"]
+      if scheme == "ARK" && id =~ %r{^ark:/13030/(qt\w{8})$}
+        return Item[$1]
+      elsif scheme == "DOI" && id =~ /^.*?\b(10\..*)$/
+        return Item.where(Sequel.lit(%{json_unquote(attrs->"$.doi") like ?}, "%#{$1}")).first
+      elsif %w{LBNL_PUB_ID OA_PUB_ID ARK}.include?(scheme)
+        Item.where(Sequel.lit(%{attrs->"$.local_ids" like ?}, "%#{id}%")).limit(100).each { |item|
+          attrs = item.attrs ? JSON.parse(item.attrs) : {}
+          (attrs['local_ids'] || []).each { |loc|
+            next unless loc['id'] == id
+            if scheme == "LBNL_PUB_ID" && loc['type'] == 'lbnl'
+              return item
+            elsif scheme == "OA_PUB_ID" && loc['type'] == 'oa_harvester'
+              return item
+            elsif scheme == "ARK" && loc['type'] == 'merritt'
+              return item
+            end
+          }
+        }
+        return nil
+      else
+        return GraphQL::ExecutionError.new("currently unsupported scheme for querying")
+      end
+    }
   end
 
   field :items, ItemsType, "Query a list of all items" do
