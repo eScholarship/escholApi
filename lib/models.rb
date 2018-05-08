@@ -14,6 +14,9 @@ end
 class Unit < Sequel::Model
   unrestrict_primary_key
 end
+class UnitHier < Sequel::Model(:unit_hier)
+  unrestrict_primary_key
+end
 class UnitItem < Sequel::Model
   unrestrict_primary_key
 end

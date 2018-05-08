@@ -702,6 +702,12 @@ UnitType = GraphQL::ObjectType.define do
 
   field :name, !types.String, "Human-readable name of the unit"
 
+  field :type, !UnitTypeEnum, "Type of unit, e.g. ORU, SERIES, JOURNAL" do
+    resolve -> (obj, args, ctx) {
+      obj.type.upcase
+    }
+  end
+
   field :items, ItemsType, "Query items in the unit (incl. children)" do
     argument :first, types.Int, default_value: 100,
       description: "Number of results to return (values 1..500 are valid)",
@@ -722,8 +728,36 @@ UnitType = GraphQL::ObjectType.define do
     resolve -> (obj, args, ctx) { ItemsData.new(args, obj.id) }
   end
 
+  field :children, types[UnitType], "Hierarchical children (i.e. sub-units)" do
+    resolve -> (obj, args, ctx) {
+      query = UnitHier.where(is_direct: true).order(:ordering).select(:ancestor_unit, :unit_id)
+      GroupLoader.for(query, :ancestor_unit).load(obj.id).then { |childUnits|
+        childUnits ? RecordLoader.for(Unit).load_many(childUnits.map { |pu| pu.unit_id }) : nil
+      }
+    }
+  end
 
-  # TODO: many more fields in the schema
+  field :parents, types[UnitType], "Hierarchical parent(s) (i.e. owning units)" do
+    resolve -> (obj, args, ctx) {
+      query = UnitHier.where(is_direct: true).order(:ordering).select(:ancestor_unit, :unit_id)
+      GroupLoader.for(query, :unit_id).load(obj.id).then { |parentUnits|
+        parentUnits ? RecordLoader.for(Unit).load_many(parentUnits.map { |pu| pu.ancestor_unit }) : nil
+      }
+    }
+  end
+end
+
+###################################################################################################
+UnitTypeEnum = GraphQL::EnumType.define do
+  name "UnitType"
+  description "Type of unit within eScholarship"
+  value("CAMPUS",           "campus within the UC system")
+  value("JOURNAL",          "journal hosted by eScholarship")
+  value("MONOGRAPH_SERIES", "series of monographs")
+  value("ORU",              "general Organized Research Unit; often a dept.")
+  value("ROOT",             "eScholarship itself")
+  value("SEMINAR_SERIES",   "series of seminars")
+  value("SERIES",           "general series of publications")
 end
 
 ###################################################################################################
@@ -785,6 +819,10 @@ QueryType = GraphQL::ObjectType.define do
   field :unit, UnitType, "Get a unit given its identifier" do
     argument :id, !types.ID
     resolve -> (obj, args, ctx) { Unit[args["id"]] }
+  end
+
+  field :rootUnit, !UnitType, "The root of the unit hierarchy (eSchol itself)" do
+    resolve -> (obj, args, ctx) { Unit["root"] }
   end
 end
 

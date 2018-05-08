@@ -8,6 +8,7 @@ type Query {
                                                             before: DateTime, after: DateTime,
                                                             tags: [String], first: Int = 100, more: Cursor): Items!
   "Get a unit given its identifier"                   unit(id: ID!): Unit
+  "The root of the unit hierarchy (eSchol itself)"    rootUnit: Unit!
 }
 
 "Opaque cursor used for paging through long lists"    scalar Cursor
