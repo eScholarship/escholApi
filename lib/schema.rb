@@ -132,8 +132,9 @@ ItemType = GraphQL::ObjectType.define do
 
   field :contentLink, types.String, "Download link for PDF/content file (if applicable)" do
     resolve -> (obj, args, ctx) {
+      content_prefix = ENV['CLOUDFRONT_PUBLIC_URL'] || Thread.current[:baseURL]
       obj.status == "published" && obj.content_type == "application/pdf" ?
-        "https://cloudfront.escholarship.org/dist/prd/content/#{obj.id}/#{obj.id}.pdf" : nil
+        "#{content_prefix}/content/#{obj.id}/#{obj.id}.pdf" : nil
     }
   end
 
@@ -457,7 +458,7 @@ end
 
 ###################################################################################################
 class ItemsData
-  def initialize(args, unitID = nil)
+  def initialize(args, unitID: nil, itemID: nil, personID: nil)
     query = Item.where(status: 'published')
 
     # If 'more' was specified, decode it and use all the parameters from the original query
@@ -466,6 +467,15 @@ class ItemsData
     # If this is a unit query, restrict to items within that unit.
     if unitID
       query = query.where(Sequel.lit("id in (select item_id from unit_items where unit_id = ?)", unitID))
+    end
+
+    # If this is an author query, restrict to items by that author. In the case of an author with
+    # no ID, this amounts to a single item.
+    if personID
+      query = query.where(Sequel.lit("id in (select item_id from item_authors where person_id = ?)", personID))
+    end
+    if itemID
+      query = query.where(id: itemID)
     end
 
     # Let's get the ordering correct -- using the right field, and either ascending or descending
@@ -538,13 +548,22 @@ end
 AuthorsType = GraphQL::ObjectType.define do
   name "Authors"
   description "A list of authors, with paging capability because some items have thousands"
-  field :total, !types.Int, "Approximate total items on all pages"
-  field :nodes, !types[AuthorType], "Array of the items on this page"
+  field :total, !types.Int, "Approximate total authors on all pages"
+  field :nodes, !types[AuthorType], "Array of the authors on this page" do
+    resolve -> (obj, args, ctx) {
+      obj.nodes.then { |nodes|
+        nodes.each { |node| node['itemID'] = obj.itemID }
+        nodes
+      }
+    }
+  end
   field :more, types.String, "Opaque cursor string for next page"
 end
 
 ###################################################################################################
 class AuthorsData
+  attr_accessor :itemID
+
   def initialize(args, itemID)
     # If 'more' was specified, decode it and use all the parameters from the original query
     @args = args['more'] ? JSON.parse(Base64.urlsafe_decode64(args['more'])) : args.to_h.clone
@@ -585,6 +604,39 @@ AuthorType = GraphQL::ObjectType.define do
 
   field :nameParts, NamePartsType, "Individual name parts for special needs" do
     resolve -> (obj, args, ctx) { JSON.parse(obj.attrs) }
+  end
+
+  field :id, types.ID, "eSchol person ID (many authors have none)" do
+    resolve -> (obj, args, ctx) { obj.person_id }
+  end
+
+  field :variants, !types[NamePartsType], "All name variants" do
+    resolve -> (obj, args, ctx) {
+      if obj.person_id
+        variants = Set.new
+        ItemAuthor.where(person_id: obj.person_id).each { |other|
+          otherAttrs = JSON.parse(other.attrs)
+          otherAttrs.delete('email')
+          variants << otherAttrs
+        }
+        variants.to_a.sort { |a,b| a.to_s <=> b.to_s }
+      else
+        [JSON.parse(obj.attrs)]
+      end
+    }
+  end
+
+  field :items, ItemsType, "Query items by this author" do
+    defineItemsArgs
+    resolve -> (obj, args, ctx) {
+      if obj.person_id
+        ItemsData.new(args, personID: obj.person_id)
+      else
+        itemID = obj.values['itemID']
+        itemID or raise("internal error: must have itemID or person_id")
+        ItemsData.new(args, itemID: itemID)
+      end
+    }
   end
 end
 
@@ -658,6 +710,10 @@ end
 NamePartsType = GraphQL::ObjectType.define do
   name "NameParts"
   description "Individual access to parts of the name, generally only used in special cases"
+  field :name, !types.String, "Combined name parts; usually 'lname, fname'" do
+    resolve -> (obj, args, ctx) { obj['name'] }
+  end
+
   field :fname, types.String, "First name / given name" do
     resolve -> (obj, args, ctx) { obj['fname'] }
   end
@@ -689,7 +745,10 @@ SuppFileType = GraphQL::ObjectType.define do
     resolve -> (obj, args, ctx) { obj['mimeType'] }
   end
   field :downloadLink, !types.String, "URL to download the file" do
-    resolve -> (obj, args, ctx) { "https://cloudfront.escholarship.org/dist/prd/content/#{obj[:item_id]}/supp/#{obj['file']}" }
+    resolve -> (obj, args, ctx) {
+      content_prefix = ENV['CLOUDFRONT_PUBLIC_URL'] || Thread.current[:baseURL]
+      "#{content_prefix}/content/#{obj[:item_id]}/supp/#{obj['file']}"
+    }
   end
 end
 
@@ -709,23 +768,8 @@ UnitType = GraphQL::ObjectType.define do
   end
 
   field :items, ItemsType, "Query items in the unit (incl. children)" do
-    argument :first, types.Int, default_value: 100,
-      description: "Number of results to return (values 1..500 are valid)",
-      prepare: ->(val, ctx) {
-        (val.nil? || (val >= 1 && val <= 500)) or return GraphQL::ExecutionError.new("'first' must be in range 1..500")
-        return val
-      }
-    argument :more, types.String, description: %{Opaque string obtained from the `more` field of a prior result,
-                                                 and used to fetch the next set of nodes.
-                                                 Do not specify any other arguments with this one; the string already
-                                                 encodes the prior set of arguments.}.unindent
-    argument :before, DateTimeType, description: "Return only items *before* this date/time (within the `order` ordering)"
-    argument :after, DateTimeType, description: "Return only items *after* this date/time (within the `order` ordering)"
-    argument :tags, types[types.String], description: "Subset items with keyword, subject, discipline, grant, and/or type"
-    argument :order, ItemOrderEnum, default_value: "ADDED_DESC",
-             description: %{Sets the ordering of results
-                            (and affects interpretation of the `before` and `after` arguments)}
-    resolve -> (obj, args, ctx) { ItemsData.new(args, obj.id) }
+    defineItemsArgs
+    resolve -> (obj, args, ctx) { ItemsData.new(args, unitID: obj.id) }
   end
 
   field :children, types[UnitType], "Hierarchical children (i.e. sub-units)" do
@@ -761,6 +805,26 @@ UnitTypeEnum = GraphQL::EnumType.define do
 end
 
 ###################################################################################################
+def defineItemsArgs
+  argument :first, types.Int, default_value: 100,
+    description: "Number of results to return (values 1..500 are valid)",
+    prepare: ->(val, ctx) {
+      (val.nil? || (val >= 1 && val <= 500)) or return GraphQL::ExecutionError.new("'first' must be in range 1..500")
+      return val
+    }
+  argument :more, types.String, description: %{Opaque string obtained from the `more` field of a prior result,
+                                               and used to fetch the next set of nodes.
+                                               Do not specify any other arguments with this one; the string already
+                                               encodes the prior set of arguments.}.unindent
+  argument :before, DateTimeType, description: "Return only items *before* this date/time (within the `order` ordering)"
+  argument :after, DateTimeType, description: "Return only items *after* this date/time (within the `order` ordering)"
+  argument :tags, types[types.String], description: "Subset items with keyword, subject, discipline, grant, and/or type"
+  argument :order, ItemOrderEnum, default_value: "ADDED_DESC",
+           description: %{Sets the ordering of results
+                          (and affects interpretation of the `before` and `after` arguments)}
+end
+
+###################################################################################################
 QueryType = GraphQL::ObjectType.define do
   name "Query"
   description "The eScholarship API"
@@ -774,7 +838,7 @@ QueryType = GraphQL::ObjectType.define do
       if scheme == "ARK" && id =~ %r{^ark:/13030/(qt\w{8})$}
         return Item[$1]
       elsif scheme == "DOI" && id =~ /^.*?\b(10\..*)$/
-        return Item.where(Sequel.lit(%{json_unquote(attrs->"$.doi") like ?}, "%#{$1}")).first
+        return Item.where(Sequel.lit(%{attrs->>"$.doi" like ?}, "%#{$1}")).first
       elsif %w{LBNL_PUB_ID OA_PUB_ID ARK}.include?(scheme)
         Item.where(Sequel.lit(%{attrs->"$.local_ids" like ?}, "%#{id}%")).limit(100).each { |item|
           attrs = item.attrs ? JSON.parse(item.attrs) : {}
@@ -797,22 +861,7 @@ QueryType = GraphQL::ObjectType.define do
   end
 
   field :items, ItemsType, "Query a list of all items" do
-    argument :first, types.Int, default_value: 100,
-      description: "Number of results to return (values 1..500 are valid)",
-      prepare: ->(val, ctx) {
-        (val.nil? || (val >= 1 && val <= 500)) or return GraphQL::ExecutionError.new("'first' must be in range 1..500")
-        return val
-      }
-    argument :more, types.String, description: %{Opaque string obtained from the `more` field of a prior result,
-                                                 and used to fetch the next set of nodes.
-                                                 Do not specify any other arguments with this one; the string already
-                                                 encodes the prior set of arguments.}.unindent
-    argument :before, DateTimeType, description: "Return only items *before* this date/time (within the `order` ordering)"
-    argument :after, DateTimeType, description: "Return only items *after* this date/time (within the `order` ordering)"
-    argument :tags, types[types.String], description: "Subset items with keyword, subject, discipline, grant, and/or type"
-    argument :order, ItemOrderEnum, default_value: "ADDED_DESC",
-             description: %{Sets the ordering of results
-                            (and affects interpretation of the `before` and `after` arguments)}
+    defineItemsArgs
     resolve -> (obj, args, ctx) { ItemsData.new(args) }
   end
 
@@ -823,6 +872,23 @@ QueryType = GraphQL::ObjectType.define do
 
   field :rootUnit, !UnitType, "The root of the unit hierarchy (eSchol itself)" do
     resolve -> (obj, args, ctx) { Unit["root"] }
+  end
+
+  field :author, AuthorType, "Get an author by ID or email address" do
+    argument :id, types.ID
+    argument :email, types.String
+    resolve -> (obj, args, ctx) {
+      id, email = args['id'], args['email']
+      if (id && email) || (!id && !email)
+        return GraphQL::ExecutionError.new("must specify either 'id' or 'email'")
+      elsif args['id']
+        person = Person[args['id']]
+      else
+        person = Person.where(Sequel.lit(%{lower(attrs->>"$.email") = ?}, email.downcase)).first
+      end
+      person or return nil
+      return ItemAuthor.where(person_id: person.id).first
+    }
   end
 end
 

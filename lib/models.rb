@@ -9,6 +9,9 @@ end
 class ItemContrib < Sequel::Model
   unrestrict_primary_key
 end
+class Person < Sequel::Model(:people)
+  unrestrict_primary_key
+end
 class Section < Sequel::Model
 end
 class Unit < Sequel::Model

@@ -126,16 +126,19 @@ class SinatraGraphql < Sinatra::Base
     "ok"
   end
 
-  get '/graphql' do
-    params['query'] or redirect(to('/graphql/iql'))
+  def serveGraphql(params)
     content_type :json
+    Thread.current[:baseURL] = request.url.sub(%r{(https?://[^/]+)(.*)}, '\1')
     Schema.execute(params['query'], variables: params['variables']).to_json
   end
 
+  get '/graphql' do
+    params['query'] or redirect(to('/graphql/iql'))
+    serveGraphql params
+  end
+
   post '/graphql' do
-    params =  JSON.parse(request.body.read)
-    content_type :json
-    Schema.execute(params['query'], variables: params['variables']).to_json
+    serveGraphql JSON.parse(request.body.read)
   end
 
   def serveOAI

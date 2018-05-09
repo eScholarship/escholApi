@@ -6,12 +6,12 @@ type Query {
   "Get item's info given its identifier"              item(id: ID!, scheme: ItemIdScheme = ARK): Item
   "Query a list of all items"                         items(order: ItemOrder = UPDATED_DESC,
                                                             before: DateTime, after: DateTime,
-                                                            tags: [String], first: Int = 100, more: Cursor): Items!
+                                                            tags: [String], first: Int = 100, more: String): Items!
   "Get a unit given its identifier"                   unit(id: ID!): Unit
   "The root of the unit hierarchy (eSchol itself)"    rootUnit: Unit!
+  "Get an author by ID or email address"              author(id: ID, email: String): Author
 }
 
-"Opaque cursor used for paging through long lists"    scalar Cursor
 "A date, formatted as ISO-8601, e.g. 2017-12-31"      scalar Date
 "A date and time, eg 2018-03-08T16:00:00-08:00"       scalar DateTime
 
@@ -19,7 +19,7 @@ type Query {
 type Items {
   "Approximate total items on all pages"              total: Int!
   "Array of the items on this page"                   nodes: [Item]!
-  "Opaque cursor string for next page"                more: Cursor
+  "Opaque cursor string for next page"                more: String
 }
 
 "A single work or publication within eScholarship"
@@ -70,7 +70,7 @@ type Unit {
   "Hierarchical children (i.e. sub-units)"            children: [Unit]
   "Query items in the unit (incl. sub-units)"         items(order: ItemOrder = UPDATED_DESC,
                                                             before: DateTime, after: DateTime,
-                                                            tags: [String], first: Int = 100, more: Cursor): Items!
+                                                            tags: [String], first: Int = 100, more: String): Items!
 }
 
 "Type of unit within eScholarship"
@@ -88,20 +88,25 @@ enum UnitType {
 type Authors {
   "Approximate total agents on all pages"             total: Int!
   "Array of the authors on this page"                 nodes: [Agent]!
-  "Opaque cursor string for next page"                more: Cursor
+  "Opaque cursor string for next page"                more: String
 }
 
 "A single author (can be a person or organization)"
 type Author {
+  "eSchol person ID (many authors have none)"         id: ID
   "Combined name parts; usually 'lname, fname'"       name: String!
   "Individual name parts for special needs"           nameParts: NameParts
+  "All name variants"                                 variants: [NameParts]!
+  "Query items by this author (incl. sub-units)"      items(order: ItemOrder = UPDATED_DESC,
+                                                            before: DateTime, after: DateTime,
+                                                            tags: [String], first: Int = 100, more: String): Items!
 }
 
 "A list of contributors (e.g. editors, advisors), with paging capability"
 type Contributors {
   "Approximate total agents on all pages"             total: Int!
   "Array of the authors on this page"                 nodes: [Contributor]!
-  "Opaque cursor string for next page (rare)"         more: Cursor
+  "Opaque cursor string for next page (rare)"         more: String
 }
 
 "A single author or other contributor, and their role"
@@ -113,6 +118,7 @@ type Contributor {
 
 "Individual access to parts of the name, generally only used in special cases"
 type NameParts {
+  "Combined name parts; usually 'lname, fname'"       name: String!
   "First name / given name"                           fname: String
   "Last name / surname"                               lname: String
   "Middle name"                                       mname: String
