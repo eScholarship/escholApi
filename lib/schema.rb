@@ -90,6 +90,15 @@ DateTimeType = GraphQL::ScalarType.define do
 end
 
 ###################################################################################################
+def loadFilteredUnits(unitIDs, emptyRet = nil)
+  unitIDs or return emptyRet
+  RecordLoader.for(Unit).load_many(unitIDs).then { |units|
+    units.reject! { |u| u.status=="hidden" }
+    units.empty? ? emptyRet : units
+  }
+end
+
+###################################################################################################
 ItemType = GraphQL::ObjectType.define do
   name "Item"
   description "An item"
@@ -242,7 +251,7 @@ ItemType = GraphQL::ObjectType.define do
     resolve -> (obj, args, ctx) {
       query = UnitItem.where(is_direct: true).order(:item_id, :ordering_of_units).select(:item_id, :unit_id)
       GroupLoader.for(query, :item_id).load(obj.id).then { |unitItems|
-        RecordLoader.for(Unit).load_many(unitItems ? unitItems.map { |unitItem| unitItem.unit_id } : [])
+        loadFilteredUnits(unitItems.map { |unitItem| unitItem.unit_id }, [])
       }
     }
   end
@@ -775,8 +784,8 @@ UnitType = GraphQL::ObjectType.define do
   field :children, types[UnitType], "Hierarchical children (i.e. sub-units)" do
     resolve -> (obj, args, ctx) {
       query = UnitHier.where(is_direct: true).order(:ordering).select(:ancestor_unit, :unit_id)
-      GroupLoader.for(query, :ancestor_unit).load(obj.id).then { |childUnits|
-        childUnits ? RecordLoader.for(Unit).load_many(childUnits.map { |pu| pu.unit_id }) : nil
+      GroupLoader.for(query, :ancestor_unit).load(obj.id).then { |unitHiers|
+        unitHiers ? loadFilteredUnits(unitHiers.map { |pu| pu.unit_id }) : nil
       }
     }
   end
@@ -784,8 +793,8 @@ UnitType = GraphQL::ObjectType.define do
   field :parents, types[UnitType], "Hierarchical parent(s) (i.e. owning units)" do
     resolve -> (obj, args, ctx) {
       query = UnitHier.where(is_direct: true).order(:ordering).select(:ancestor_unit, :unit_id)
-      GroupLoader.for(query, :unit_id).load(obj.id).then { |parentUnits|
-        parentUnits ? RecordLoader.for(Unit).load_many(parentUnits.map { |pu| pu.ancestor_unit }) : nil
+      GroupLoader.for(query, :unit_id).load(obj.id).then { |unitHiers|
+        unitHiers ? loadFilteredUnits(unitHiers.map { |pu| pu.ancestor_unit }) : nil
       }
     }
   end
