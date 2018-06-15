@@ -156,4 +156,11 @@ class SinatraGraphql < Sinatra::Base
     serveOAI
   end
 
+  # DSpace emulator for Symplectic Elements RT2 integration
+  post %r{/dspace-rest.*} do
+    serveDSpace("POST")
+  end
+  get %r{/dspace-rest.*} do
+    serveDSpace("GET")
+  end
 end
