@@ -74,6 +74,7 @@ GEM
     tzinfo (1.2.5)
       thread_safe (~> 0.1)
     unindent (1.0)
+    xml-simple (1.1.5)
 
 PLATFORMS
   ruby
@@ -96,6 +97,7 @@ DEPENDENCIES
   sinatra-contrib (>= 2.0.2)
   socksify
   unindent
+  xml-simple
 
 BUNDLED WITH
    1.16.2

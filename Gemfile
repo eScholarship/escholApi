@@ -29,6 +29,7 @@ gem 'socksify'
 gem 'erubis'
 gem 'nokogiri'
 gem 'unindent'
+gem 'xml-simple'
 
 group :development do
   gem 'rerun'

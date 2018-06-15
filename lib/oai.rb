@@ -19,20 +19,6 @@ $disciplines = Set.new(["Life Sciences",
                         "Education"])
 
 ###################################################################################################
-# Send a GraphQL query to the main API, returning the JSON results
-def apiQuery(query, vars={})
-  if vars.empty?
-    query = "query { #{query} }"
-  else
-    query = "query(#{vars.map{|name, pair| "$#{name}: #{pair[0]}"}.join(", ")}) { #{query} }"
-  end
-  varHash = Hash[vars.map{|name,pair| [name.to_s, pair[1]]}]
-  response = Schema.execute(query, variables: varHash)
-  response['errors'] and raise("Internal error (graphql): #{response['errors'][0]['message']}")
-  response['data']
-end
-
-###################################################################################################
 class EscholSet < OAI::Set
   def initialize(values = {})
     super(values)
@@ -332,13 +318,14 @@ class EscholModel < OAI::Provider::Model
     tags = []
     unitSet = nil
     if opts[:set] && opts[:set] != "everything"
-      if $disciplines.include?(opts[:set])
+      setStr = opts[:set].sub(/^col_/, '')  # handle dspace-style "col_" to front of set names
+      if $disciplines.include?(setStr)
         queryParams[:discTag] = ["String!", "discipline:#{discSet}"]
         tags << "$discTag"
-      elsif apiQuery("unit(id: $unitID) { name }", { unitID: ["ID!", opts[:set]] }).dig("unit", "name")
-        unitSet = opts[:set]
-      elsif %w{ARTICLE CHAPTER ETD MONOGRAPH MULTIMEDIA NON_TEXTUAL}.include?(opts[:set])
-        queryParams[:typeTag] = ["String!", "type:#{opts[:set]}"]
+      elsif apiQuery("unit(id: $unitID) { name }", { unitID: ["ID!", setStr] }).dig("unit", "name")
+        unitSet = setStr
+      elsif %w{ARTICLE CHAPTER ETD MONOGRAPH MULTIMEDIA NON_TEXTUAL}.include?(setStr)
+        queryParams[:typeTag] = ["String!", "type:#{setStr}"]
         tags << "$typeTag"
       else
         raise(OAI::NoMatchException.new)
