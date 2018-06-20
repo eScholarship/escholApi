@@ -100,6 +100,27 @@ class AccessLogger
   end
 end
 
+#################################################################################################
+# Add some URL context so stuff deep in the GraphQL schema can get to it
+before do
+  Thread.current[:baseURL] = request.url.sub(%r{(https?://[^/]+)(.*)}, '\1')
+end
+
+#################################################################################################
+# Send a GraphQL query to the main API, returning the JSON results. Used by various wrappers
+# below (e.g. OAI and DSpace)
+def apiQuery(query, vars = {}, privileged = false)
+  if vars.empty?
+    query = "query { #{query} }"
+  else
+    query = "query(#{vars.map{|name, pair| "$#{name}: #{pair[0]}"}.join(", ")}) { #{query} }"
+  end
+  varHash = Hash[vars.map{|name,pair| [name.to_s, pair[1]]}]
+  response = Schema.execute(query, variables: varHash, context: { privileged: privileged })
+  response['errors'] and raise("Internal error (graphql): #{response['errors'][0]['message']}")
+  response['data']
+end
+
 ###################################################################################################
 class SinatraGraphql < Sinatra::Base
   set public_folder: 'public', static: true
@@ -134,7 +155,6 @@ class SinatraGraphql < Sinatra::Base
   #################################################################################################
   def serveGraphql(params)
     content_type :json
-    Thread.current[:baseURL] = request.url.sub(%r{(https?://[^/]+)(.*)}, '\1')
     Schema.execute(params['query'], variables: params['variables']).to_json
   end
 
@@ -148,23 +168,7 @@ class SinatraGraphql < Sinatra::Base
   end
 
   #################################################################################################
-  # Send a GraphQL query to the main API, returning the JSON results. Used by various wrappers
-  # below (e.g. OAI and DSpace)
-  def apiQuery(query, vars={})
-    if vars.empty?
-      query = "query { #{query} }"
-    else
-      query = "query(#{vars.map{|name, pair| "$#{name}: #{pair[0]}"}.join(", ")}) { #{query} }"
-    end
-    varHash = Hash[vars.map{|name,pair| [name.to_s, pair[1]]}]
-    response = Schema.execute(query, variables: varHash)
-    response['errors'] and raise("Internal error (graphql): #{response['errors'][0]['message']}")
-    response['data']
-  end
-
-  #################################################################################################
   def serveOAI
-    Thread.current[:graphqlApi] = "http://#{request.host}:3000/graphql"
     content_type 'text/xml;charset=utf-8'
     provider = EscholProvider.new
     provider.process_request(params)
@@ -180,10 +184,10 @@ class SinatraGraphql < Sinatra::Base
 
   #################################################################################################
   # DSpace emulator for Symplectic Elements RT2 integration
-  post %r{/dspace-rest.*} do
+  post %r{/dspace-.*} do
     serveDSpace("POST")
   end
-  get %r{/dspace-rest.*} do
+  get %r{/dspace-.*} do
     serveDSpace("GET")
   end
 end

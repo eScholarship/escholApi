@@ -233,6 +233,12 @@ ItemType = GraphQL::ObjectType.define do
     }
   end
 
+  field :isbn, types.String, "Book ISBN" do
+    resolve -> (obj, args, ctx) {
+      (obj.attrs ? JSON.parse(obj.attrs) : {})['isbn']
+    }
+  end
+
   field :contributors, ContributorsType, "Editors, advisors, etc. (if any)" do
     argument :first, types.Int, default_value: 100, prepare: ->(val, ctx) {
       (val.nil? || (val >= 1 && val <= 500)) or return GraphQL::ExecutionError.new("'first' must be in range 1..500")
@@ -320,6 +326,15 @@ ItemType = GraphQL::ObjectType.define do
   field :lpage, types.String, "Last page (within a larger work like a journal issue)" do
     resolve -> (obj, args, ctx) {
       (obj.attrs ? JSON.parse(obj.attrs) : {}).dig('ext_journal', 'lpage')
+    }
+  end
+
+  field :pagination, types.String, "Combined first page - last page" do
+    resolve -> (obj, args, ctx) {
+      attrs = obj.attrs ? JSON.parse(obj.attrs) : {}
+      fpage = attrs.dig('ext_journal', 'fpage')
+      lpage = attrs.dig('ext_journal', 'lpage')
+      fpage ? (lpage ? "#{fpage}-#{lpage}" : fpage) : lpage
     }
   end
 
@@ -647,6 +662,13 @@ AuthorType = GraphQL::ObjectType.define do
       end
     }
   end
+
+  field :email, types.String, "Email (restricted field)" do
+    resolve -> (obj, args, ctx) {
+      ctx[:privileged] or return GraphQL::ExecutionError.new("'email' field is restricted")
+      JSON.parse(obj.attrs)['email']
+    }
+  end
 end
 
 ###################################################################################################
@@ -704,6 +726,13 @@ ContributorType = GraphQL::ObjectType.define do
 
   field :nameParts, NamePartsType, "Individual name parts for special needs" do
     resolve -> (obj, args, ctx) { JSON.parse(obj.attrs) }
+  end
+
+  field :email, types.String, "Email (restricted field)" do
+    resolve -> (obj, args, ctx) {
+      ctx[:privileged] or return GraphQL::ExecutionError.new("'email' field is restricted")
+      JSON.parse(obj.attrs)['email']
+    }
   end
 end
 

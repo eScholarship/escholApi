@@ -51,10 +51,12 @@ type Item {
   "Journal volume number"                             volume: String
   "Journal issue number"                              issue: String
   "Journal ISSN"                                      issn: String
+  "Book ISBN"                                         isbn: String
   "Proceedings within which item appears (if any)"    proceedings: String
   "Title of the book item appears in (if any)"        bookTitle: String
   "First page (e.g. within journal issue)"            fpage: String
   "Last page (e.g. within journal issue)"             lpage: String
+  "Combined first pg - last pg"                       pagination: String
   "Funding grants linked to this item"                grants: [String]
   "Source system within the eScholarship environment" source: String!
   "Pub type within UCPMS (if source = oa_harvester)"  ucpmsPubType: String
