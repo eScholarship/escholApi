@@ -214,22 +214,20 @@ def dspaceItems
   if data['contentLink'] && data['contentType'] == "application/pdf"
     bitstreams = xmlGen('''
       <bitstreams>
-        <bitstream>
-          <link><%= data["contentLink"] %></link>
-          <expand>parent</expand>
-          <expand>policies</expand>
-          <expand>all</expand>
-          <name><%= File.basename(data["contentLink"]) %></name>
-          <type>bitstream</type>
-          <UUID><%= data["contentLink"] %></UUID>
-          <bundleName>ORIGINAL</bundleName>
-          <description>Accepted version</description>
-          <format>Adobe PDF</format>
-          <mimeType>application/pdf</mimeType>
-          <link><%= data["contentLink"] %></link>
-          <sequenceId>-1</sequenceId>
-          <sizeBytes>61052</sizeBytes>
-        </bitstream>
+        <link><%= data["contentLink"] %></link>
+        <expand>parent</expand>
+        <expand>policies</expand>
+        <expand>all</expand>
+        <name><%= File.basename(data["contentLink"]) %></name>
+        <type>bitstream</type>
+        <UUID><%= data["contentLink"] %></UUID>
+        <bundleName>ORIGINAL</bundleName>
+        <description>Accepted version</description>
+        <format>Adobe PDF</format>
+        <mimeType>application/pdf</mimeType>
+        <link><%= data["contentLink"] %></link>
+        <sequenceId>-1</sequenceId>
+        <sizeBytes>61052</sizeBytes>
       </bitstreams>''', binding, xml_header: false)
   end
 
@@ -253,6 +251,7 @@ def dspaceItems
     </item>''', binding)
 end
 
+###################################################################################################
 def dspaceSwordPost
   content_type "text/xml"
   # POST /swordv2/collection/123456789/2
