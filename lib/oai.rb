@@ -106,6 +106,10 @@ class EscholRecord
     @data['contentType'] and xml.tag!("dc:format", @data['contentType'])
     xml.tag!("dc:rights", @data['rights'] || 'public')
     xml.tag!("dc:publisher", "eScholarship, University of California")
+
+    # Second version of identifier to contain an item link. I (MH) thought this was just for OCLC, but am
+    # informed by folks at oaDOI that it's pretty common and preferred for all repos.
+    xml.tag!("dc:identifier", "https://escholarship.org/uc/item/#{@data['id'].sub(%r{^ark:/13030/qt}, '')}")
   end
 
   def to_oai_dc
@@ -162,9 +166,6 @@ class EscholRecord
         xml.tag!("dc:source", issData.join(", "))
         @data['issn'] and xml.tag!("dc:source", @data['issn'])
       end
-
-      # Second version of identifier for OCLC harvesting
-      xml.tag!("dc:identifier", "https://escholarship.org/uc/item/#{@data['id'].sub(%r{^ark:/13030/qt}, '')}")
     }
     xml.target!
   end
