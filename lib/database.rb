@@ -26,6 +26,7 @@ def ensureConnect(envPrefix)
   if TCPSocket::socks_port
     SocksMysql.new(dbConfig)
   end
+  puts "dbConfig=#{dbConfig} socks_port=#{TCPSocket::socks_port.inspect}"
   db = Sequel.connect(dbConfig)
   n = db.fetch("SHOW TABLE STATUS").all.length
   n > 0 or raise("Failed to connect to db.")

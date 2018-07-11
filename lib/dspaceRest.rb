@@ -10,7 +10,8 @@ require 'securerandom'
 require 'time'
 require 'xmlsimple'
 
-$creds = JSON.parse(File.read("#{ENV['HOME']}/.passwords/rt2_adapter_creds.json"))
+credFile = "#{ENV['HOME']}/.passwords/rt2_adapter_creds.json"
+$creds = File.exist?(credFile) ? JSON.parse(File.read(credFile)) : {}
 
 $sessions = {}
 MAX_SESSIONS = 5
