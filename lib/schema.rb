@@ -227,6 +227,12 @@ ItemType = GraphQL::ObjectType.define do
     }
   end
 
+  field :publisher, types.String, "Publisher of the item (if any)" do
+    resolve -> (obj, args, ctx) {
+      (obj.attrs ? JSON.parse(obj.attrs) : {})['publisher']
+    }
+  end
+
   field :proceedings, types.String, "Proceedings within which item appears (if any)" do
     resolve -> (obj, args, ctx) {
       (obj.attrs ? JSON.parse(obj.attrs) : {})['proceedings']
@@ -253,11 +259,11 @@ ItemType = GraphQL::ObjectType.define do
     }
   end
 
-  field :units, !types[UnitType], "The series/unit(s) associated with this item" do
+  field :units, types[UnitType], "The series/unit(s) associated with this item" do
     resolve -> (obj, args, ctx) {
       query = UnitItem.where(is_direct: true).order(:item_id, :ordering_of_units).select(:item_id, :unit_id)
       GroupLoader.for(query, :item_id).load(obj.id).then { |unitItems|
-        loadFilteredUnits(unitItems.map { |unitItem| unitItem.unit_id }, [])
+        unitItems ? loadFilteredUnits(unitItems.map { |unitItem| unitItem.unit_id }, []) : nil
       }
     }
   end
@@ -482,8 +488,9 @@ end
 
 ###################################################################################################
 class ItemsData
-  def initialize(args, unitID: nil, itemID: nil, personID: nil)
-    query = Item.where(status: 'published')
+  def initialize(args, ctx, unitID: nil, itemID: nil, personID: nil)
+    statuses = ctx[:privileged] ? ['withdrawn', 'embargoed', 'published'] : ['published']
+    query = Item.where(status: statuses)
 
     # If 'more' was specified, decode it and use all the parameters from the original query
     args['more'] and args = JSON.parse(Base64.urlsafe_decode64(args['more']))
@@ -654,11 +661,11 @@ AuthorType = GraphQL::ObjectType.define do
     defineItemsArgs
     resolve -> (obj, args, ctx) {
       if obj.person_id
-        ItemsData.new(args, personID: obj.person_id)
+        ItemsData.new(args, ctx, personID: obj.person_id)
       else
         itemID = obj.values['itemID']
         itemID or raise("internal error: must have itemID or person_id")
-        ItemsData.new(args, itemID: itemID)
+        ItemsData.new(args, ctx, itemID: itemID)
       end
     }
   end
@@ -667,6 +674,12 @@ AuthorType = GraphQL::ObjectType.define do
     resolve -> (obj, args, ctx) {
       ctx[:privileged] or return GraphQL::ExecutionError.new("'email' field is restricted")
       JSON.parse(obj.attrs)['email']
+    }
+  end
+
+  field :orcid, types.String, "ORCID identifier" do
+    resolve -> (obj, args, ctx) {
+      JSON.parse(obj.attrs)['ORCID_id']
     }
   end
 end
@@ -807,7 +820,7 @@ UnitType = GraphQL::ObjectType.define do
 
   field :items, ItemsType, "Query items in the unit (incl. children)" do
     defineItemsArgs
-    resolve -> (obj, args, ctx) { ItemsData.new(args, unitID: obj.id) }
+    resolve -> (obj, args, ctx) { ItemsData.new(args, ctx, unitID: obj.id) }
   end
 
   field :children, types[UnitType], "Hierarchical children (i.e. sub-units)" do
@@ -900,7 +913,7 @@ QueryType = GraphQL::ObjectType.define do
 
   field :items, ItemsType, "Query a list of all items" do
     defineItemsArgs
-    resolve -> (obj, args, ctx) { ItemsData.new(args) }
+    resolve -> (obj, args, ctx) { ItemsData.new(args, ctx) }
   end
 
   field :unit, UnitType, "Get a unit given its identifier" do
