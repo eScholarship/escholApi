@@ -309,8 +309,9 @@ class EscholModel < OAI::Provider::Model
       selector.sub!("ark:/13030/", "")
       selector =~ /^qt\w{8}$/ or raise(OAI::IdException.new)
       record = apiQuery(%{
-        item(id: "#{selector}") { #{itemFields} }
+        item(id: "ark:/13030/#{selector}") { #{itemFields} }
       }).dig("item")
+      record or raise(OAI::NoMatchException.new)
       return EscholRecord.new(record)
     end
 
