@@ -489,7 +489,7 @@ end
 ###################################################################################################
 class ItemsData
   def initialize(args, ctx, unitID: nil, itemID: nil, personID: nil)
-    statuses = ctx[:privileged] ? ['withdrawn', 'embargoed', 'published'] : ['published']
+    statuses = Thread.current[:privileged] ? ['withdrawn', 'embargoed', 'published'] : ['published']
     query = Item.where(status: statuses)
 
     # If 'more' was specified, decode it and use all the parameters from the original query
@@ -672,7 +672,7 @@ AuthorType = GraphQL::ObjectType.define do
 
   field :email, types.String, "Email (restricted field)" do
     resolve -> (obj, args, ctx) {
-      ctx[:privileged] or return GraphQL::ExecutionError.new("'email' field is restricted")
+      Thread.current[:privileged] or return GraphQL::ExecutionError.new("'email' field is restricted")
       JSON.parse(obj.attrs)['email']
     }
   end
@@ -743,7 +743,7 @@ ContributorType = GraphQL::ObjectType.define do
 
   field :email, types.String, "Email (restricted field)" do
     resolve -> (obj, args, ctx) {
-      ctx[:privileged] or return GraphQL::ExecutionError.new("'email' field is restricted")
+      Thread.current[:privileged] or return GraphQL::ExecutionError.new("'email' field is restricted")
       JSON.parse(obj.attrs)['email']
     }
   end

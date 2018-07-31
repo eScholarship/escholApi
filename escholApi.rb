@@ -133,15 +133,29 @@ class SinatraGraphql < Sinatra::Base
     }
 
   #################################################################################################
+  # A few properties privileged properties are needed by the RT2 connector, and there's a special
+  # HTTP header to pass the API key in.
+  def checkPrivilegedHdr
+    hdr = request.env['HTTP_PRIVILEGED'] or return false
+    credFile = "#{ENV['HOME']}/.passwords/rt2_adapter_creds.json"
+    File.exist?(credFile) or halt(403, "Missing rt2_adapter_creds.json")
+    creds = JSON.parse(File.read(credFile))
+    hdr.strip == creds['graphqlApiKey'] or halt(403, "Incorrect API key")
+    return true
+  end
+
+  #################################################################################################
   # Add some URL context so stuff deep in the GraphQL schema can get to it
   before do
     Thread.current[:baseURL] = request.url.sub(%r{(https?://[^/]+)(.*)}, '\1')
     Thread.current[:path] = request.path
+    Thread.current[:privileged] = checkPrivilegedHdr
   end
 
   after do
     Thread.current[:baseURL] = nil
     Thread.current[:path] = nil
+    Thread.current[:privileged] = nil
   end
 
   #################################################################################################

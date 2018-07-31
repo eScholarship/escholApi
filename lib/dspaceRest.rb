@@ -15,8 +15,6 @@ require 'xmlsimple'
 $arkDataDir = "/apps/eschol/erep/data"
 $controlDir = "/apps/eschol/erep/xtf/control"
 
-$creds = JSON.parse(File.read("#{ENV['HOME']}/.passwords/rt2_adapter_creds.json"))
-
 $sessions = {}
 MAX_SESSIONS = 5
 
@@ -53,6 +51,7 @@ end
 ###################################################################################################
 def dspaceStatus
   content_type "text/xml"
+  creds = JSON.parse(File.read("#{ENV['HOME']}/.passwords/rt2_adapter_creds.json"))
   if $sessions[getSession][:loggedIn]
     xmlGen('''
       <status>
@@ -60,7 +59,7 @@ def dspaceStatus
         <email><%=email%></email>
         <fullname>DSpace user</fullname>
         <okay>true</okay>
-      </status>''', {email: $creds['email']})
+      </status>''', {email: creds['email']})
   else
     xmlGen('''
       <status>
@@ -75,7 +74,8 @@ end
 ###################################################################################################
 def dspaceLogin
   content_type "text/plain;charset=utf-8"
-  params['email'] == $creds['email'] && params['password'] == $creds['password'] or halt(401, "Unauthorized.\n")
+  creds = JSON.parse(File.read("#{ENV['HOME']}/.passwords/rt2_adapter_creds.json"))
+  params['email'] == creds['email'] && params['password'] == creds['password'] or halt(401, "Unauthorized.\n")
   $sessions[getSession][:loggedIn] = true
   puts "==> Login ok, setting flag on session."
   "OK\n"
