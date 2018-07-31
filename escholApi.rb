@@ -103,14 +103,14 @@ end
 #################################################################################################
 # Send a GraphQL query to the main API, returning the JSON results. Used by various wrappers
 # below (e.g. OAI and DSpace)
-def apiQuery(query, vars = {}, privileged = false)
+def apiQuery(query, vars = {})
   if vars.empty?
     query = "query { #{query} }"
   else
     query = "query(#{vars.map{|name, pair| "$#{name}: #{pair[0]}"}.join(", ")}) { #{query} }"
   end
   varHash = Hash[vars.map{|name,pair| [name.to_s, pair[1]]}]
-  response = Schema.execute(query, variables: varHash, context: { privileged: privileged })
+  response = Schema.execute(query, variables: varHash)
   response['errors'] and raise("Internal error (graphql): #{response['errors'][0]['message']}")
   response['data']
 end
@@ -204,14 +204,8 @@ class SinatraGraphql < Sinatra::Base
   end
 
   #################################################################################################
-  # DSpace emulator for Symplectic Elements RT2 integration
-  post %r{/dspace-.*} do
-    serveDSpace("POST")
-  end
-  put %r{/dspace-.*} do
-    serveDSpace("PUT")
-  end
-  get %r{/dspace-.*} do
-    serveDSpace("GET")
+  # Special DSpace emulator mode for Elements RT2 connection
+  get '/dspace-oai' do
+    dspaceOAI
   end
 end
