@@ -377,12 +377,7 @@ class EscholModel < OAI::Provider::Model
     end
 
     # Run it and drill down to the list of items
-    begin
-      Thread.current[:privileged] = Thread.current[:path] =~ /dspace-oai/
-      data = apiQuery(outerQuery, queryParams)
-    ensure
-      Thread.current[:privileged] = false
-    end
+    data = apiQuery(outerQuery, queryParams)
     unitSet and data = data['unit']
     data = data['items']
 

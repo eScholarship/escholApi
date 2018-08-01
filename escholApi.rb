@@ -202,10 +202,4 @@ class SinatraGraphql < Sinatra::Base
   post '/oai' do
     serveOAI
   end
-
-  #################################################################################################
-  # Special DSpace emulator mode for Elements RT2 connection
-  get '/dspace-oai' do
-    dspaceOAI
-  end
 end
