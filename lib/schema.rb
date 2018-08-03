@@ -107,7 +107,9 @@ ItemType = GraphQL::ObjectType.define do
     resolve -> (obj, args, ctx) { "ark:/13030/#{obj.id}" }
   end
 
-  field :title, !types.String, "Title of the item (may include embedded HTML formatting tags)"
+  field :title, !types.String, "Title of the item (may include embedded HTML formatting tags)" do
+    resolve -> (obj, args, ctx) { obj.title || "" }  # very few null titles; just call it empty string
+  end
 
   field :status, !ItemStatusEnum, "Publication status; usually PUBLISHED" do
     resolve -> (obj, args, ctx) { obj.status.upcase }
