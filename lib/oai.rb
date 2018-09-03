@@ -309,8 +309,9 @@ class EscholModel < OAI::Provider::Model
       selector.sub!("ark:/13030/", "")
       selector =~ /^qt\w{8}$/ or raise(OAI::IdException.new)
       record = apiQuery(%{
-        item(id: "#{selector}") { #{itemFields} }
+        item(id: "ark:/13030/#{selector}") { #{itemFields} }
       }).dig("item")
+      record or raise(OAI::NoMatchException.new)
       return EscholRecord.new(record)
     end
 
@@ -376,7 +377,7 @@ class EscholModel < OAI::Provider::Model
     end
 
     # Run it and drill down to the list of items
-    data = apiQuery(outerQuery, queryParams)
+    data = apiQuery(outerQuery, queryParams, privileged: Thread.current[:path] =~ /dspace-oai/)
     unitSet and data = data['unit']
     data = data['items']
 

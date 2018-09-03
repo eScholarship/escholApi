@@ -8,6 +8,11 @@ require 'securerandom'
 require 'time'
 require 'xmlsimple'
 
+###################################################################################################
+# Use the right paths to everything
+$arkDataDir = "/apps/eschol/erep/data"
+$controlDir = "/apps/eschol/erep/xtf/control"
+
 credFile = "#{ENV['HOME']}/.passwords/rt2_adapter_creds.json"
 $creds = File.exist?(credFile) ? JSON.parse(File.read(credFile)) : {}
 
@@ -25,7 +30,7 @@ def getSession
   end
 
   session = SecureRandom.hex(16).upcase
-  $sessions.size >= MAX_SESSIONS and sessions.shift
+  $sessions.size >= MAX_SESSIONS and $sessions.shift
   $sessions[session] = { time: Time.now, loggedIn: false }
   headers 'Set-Cookie' => "JSESSIONID=#{session}; Path=/dspace-rest"
   puts "Created new session: #{session}"
@@ -46,10 +51,10 @@ def dspaceStatus
   else
     xmlGen('''
       <status>
-        <apiVersion>6</apiVersion>
+        <apiVersion>6.3</apiVersion>
         <authenticated>false</authenticated>
         <okay>true</okay>
-        <sourceVersion>6.0</sourceVersion>
+        <sourceVersion>6.3</sourceVersion>
       </status>''', {})
   end
 end
@@ -119,14 +124,29 @@ def dspaceItems
     authors {
       nodes {
         email
-        name
+        orcid
+        nameParts {
+          fname
+          mname
+          lname
+          suffix
+          institution
+          organization
+        }
       }
     }
     contributors {
       nodes {
         role
         email
-        name
+        nameParts {
+          fname
+          mname
+          lname
+          suffix
+          institution
+          organization
+        }
       }
     }
     localIDs {
@@ -156,6 +176,8 @@ def dspaceItems
     issue
     volume
     keywords
+    publisher
+    published
     language
     permalink
     proceedings
@@ -239,50 +261,86 @@ def dspaceItems
 end
 
 ###################################################################################################
+# Convert an elements publication GUID to an ARK on our system. This will create
+# a new ark if we haven't seen the publication before.
+def mintArk(pubGuid)
+  ark = `#{$controlDir}/tools/mintArk.py elements #{pubGuid}`.strip()
+  return (ark =~ %r<^ark:/?13030/\w{10}$>) ? ark : raise("bad result '#{ark}' from mintArk")
+end
+
+###################################################################################################
 def dspaceSwordPost
-  content_type "text/xml"
-  # POST /swordv2/collection/123456789/2
-  # with data <entry xmlns="http://www.w3.org/2005/Atom"><title>From Elements (0be0869c-6f32-48eb-b153-3f980b217b26)</title></entry>
+  request.path =~ %r{collection/13030} or raise   # we only actually support the one sword API
+
+  # Parse the body as XML, and locate the <entry>
+  request.body.rewind
+  body = Nokogiri::XML(request.body.read)
+  body.remove_namespaces!
+  entry = body.xpath("entry")
+  entry or raise("can't locate <entry> in request: #{body}")
+
+  # Grab the Elements GUID for this publication
+  title = entry.xpath("title")
+  title or raise("can't locate <title> in entry: #{body}")
+  title = title.text
+  guid = title[/\b\w{8}-\w{4}-\w{4}-\w{4}-\w{12}\b/] or raise("can't find guid in title #{title.inspect}")
+
+  # Make an eschol ARK for this pub
+  #ark = mintArk(guid)
+  #puts "ark=#{ark}"
+
+  # POST /dspace-swordv2/collection/13030/cdl_rw
+  # with data <entry xmlns="http://www.w3.org/2005/Atom">
+  #              <title>From Elements (0be0869c-6f32-48eb-b153-3f980b217b26)</title></entry>
   # TODO - customize raw response
-  xmlGen('''
+  content_type "application/atom+xml; type=entry;charset=UTF-8"
+  [201, xmlGen('''
     <entry xmlns="http://www.w3.org/2005/Atom">
-      <content src="https://pub-submit-stg.escholarship.org/swordv2/edit-media/4463d757-868a-42e2-9aab-edc560089ca0" type="application/zip"/>
-      <link href="https://pub-submit-stg.escholarship.org/swordv2/edit-media/4463d757-868a-42e2-9aab-edc560089ca0" rel="edit-media" type="application/zip"/>
-      <title xmlns="http://purl.org/dc/terms/">From Elements (0be0869c-6f32-48eb-b153-3f980b217b26)</title>
-      <title type="text">From Elements (0be0869c-6f32-48eb-b153-3f980b217b26)</title>
+      <content src="https://pub-submit-stg.escholarship.org/swordv2/edit-media/a2c851b6-b734-4764-a34c-1b785a6cdc7c"
+               type="application/zip"/>
+      <link href="https://pub-submit-stg.escholarship.org/swordv2/edit-media/a2c851b6-b734-4764-a34c-1b785a6cdc7c"
+            rel="edit-media" type="application/zip"/>
+      <title xmlns="http://purl.org/dc/terms/"><%= title %></title>
+      <title type="text"><%= title %></title>
       <rights type="text"/>
-      <updated>2018-06-05T07:00:00.000Z</updated>
-      <generator uri="http://www.dspace.org/ns/sword/2.0/" version="2.0">dspace-help@myu.edu</generator>
-      <id>https://pub-submit-stg.escholarship.org/swordv2/edit/4463d757-868a-42e2-9aab-edc560089ca0</id>
-      <link href="https://pub-submit-stg.escholarship.org/swordv2/edit/4463d757-868a-42e2-9aab-edc560089ca0" rel="edit"/>
-      <link href="https://pub-submit-stg.escholarship.org/swordv2/edit/4463d757-868a-42e2-9aab-edc560089ca0" rel="http://purl.org/net/sword/terms/add"/>
-      <link href="https://pub-submit-stg.escholarship.org/swordv2/edit-media/4463d757-868a-42e2-9aab-edc560089ca0.atom" rel="edit-media" type="application/atom+xml; type=feed"/>
+      <updated>2018-07-06T07:00:00.000Z</updated>
+      <generator uri="http://escholarship.org/ns/dspace-sword/1.0/" version="1.0">help@escholarship.org</generator>
+      <id>https://pub-submit-stg.escholarship.org/swordv2/edit/a2c851b6-b734-4764-a34c-1b785a6cdc7c</id>
+      <link href="https://pub-submit-stg.escholarship.org/swordv2/edit/a2c851b6-b734-4764-a34c-1b785a6cdc7c" rel="edit"/>
+      <link href="https://pub-submit-stg.escholarship.org/swordv2/edit/a2c851b6-b734-4764-a34c-1b785a6cdc7c"
+            rel="http://purl.org/net/sword/terms/add"/>
+      <link href="https://pub-submit-stg.escholarship.org/swordv2/edit-media/a2c851b6-b734-4764-a34c-1b785a6cdc7c.atom"
+            rel="edit-media" type="application/atom+xml; type=feed"/>
       <packaging xmlns="http://purl.org/net/sword/terms/">http://purl.org/net/sword/package/SimpleZip</packaging>
-      <link href="https://pub-submit-stg.escholarship.org/swordv2/statement/4463d757-868a-42e2-9aab-edc560089ca0.rdf" rel="http://purl.org/net/sword/terms/statement" type="application/rdf+xml"/>
-      <link href="https://pub-submit-stg.escholarship.org/swordv2/statement/4463d757-868a-42e2-9aab-edc560089ca0.atom" rel="http://purl.org/net/sword/terms/statement" type="application/atom+xml; type=feed"/>
+      <link href="https://pub-submit-stg.escholarship.org/swordv2/statement/a2c851b6-b734-4764-a34c-1b785a6cdc7c.rdf"
+            rel="http://purl.org/net/sword/terms/statement" type="application/rdf+xml"/>
+      <link href="https://pub-submit-stg.escholarship.org/swordv2/statement/a2c851b6-b734-4764-a34c-1b785a6cdc7c.atom"
+            rel="http://purl.org/net/sword/terms/statement" type="application/atom+xml; type=feed"/>
       <treatment xmlns="http://purl.org/net/sword/terms/">A metadata only item has been created</treatment>
-      <link href="http://localhost:8080/submit?workspaceID=4" rel="alternate"/>
-    </entry>''', binding)
-  # 201 Created
+      <link href="https://pub-submit-stg.escholarship.org/jspui/view-workspaceitem?submit_view=Yes&amp;workspace_id=10"
+            rel="alternate"/>
+    </entry>''', binding, xml_header: false)]
 end
 
 ###################################################################################################
 def dspaceMetaPut
-  content_type "text/xml"
-  # PUT /rest/items/4463d757-868a-42e2-9aab-edc560089ca0/metadata
+  request.body.rewind
+  puts "dspaceMetaPut: body=#{request.body.read}"
+  # PUT /rest/items/4463d757-868a-42e2-9aab-edc560089ca1/metadata
   # with data <metadataentries><metadataentry><key>dc.type</key><value>Article</value></metadataentry>
   #                            <metadataentry><key>dc.title</key><value>Targeting vivax malaria...
-  ""  # content length zero, and HTTP 200 OK
+  content_type "text/plain"
+  nil  # content length zero, and HTTP 200 OK
 end
 
 ###################################################################################################
 def dspaceBitstreamPost
   content_type "text/xml"
-  # POST /rest/items/4463d757-868a-42e2-9aab-edc560089ca0/bitstreams?name=anvlspec.pdf&description=Accepted%20version
+  # POST /rest/items/4463d757-868a-42e2-9aab-edc560089ca1/bitstreams?name=anvlspec.pdf&description=Accepted%20version
   # TODO - customize raw response
   xmlGen('''
     <bitstream>
-      <link>/rest/bitstreams/f4ae2285-f316-48df-b03b-1289a81d3252</link>
+      <link>/rest/bitstreams/a2c851b6-b734-4764-a34c-1b785a6cdc7c</link>
       <expand>parent</expand>
       <expand>policies</expand>
       <expand>all</expand>
@@ -294,7 +352,7 @@ def dspaceBitstreamPost
       <description>Accepted version</description>
       <format>Adobe PDF</format>
       <mimeType>application/pdf</mimeType>
-      <retrieveLink>/rest/bitstreams/f4ae2285-f316-48df-b03b-1289a81d3252/retrieve</retrieveLink>
+      <retrieveLink>/rest/bitstreams/a2c851b6-b734-4764-a34c-1b785a6cdc7c/retrieve</retrieveLink>
       <sequenceId>-1</sequenceId>
       <sizeBytes>61052</sizeBytes>
     </bitstream>''', binding)
@@ -302,7 +360,7 @@ end
 
 ###################################################################################################
 def dspaceEdit
-  # POST /swordv2/edit/4463d757-868a-42e2-9aab-edc560089ca0
+  # POST /dspace-swordv2/edit/4463d757-868a-42e2-9aab-edc560089ca1
   # Not sure what we receive here, nor what we should reply. Original log was incomplete
   # because Sword rejected the URL due to misconfiguration.
 end

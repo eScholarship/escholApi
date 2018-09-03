@@ -101,12 +101,6 @@ class AccessLogger
 end
 
 #################################################################################################
-# Add some URL context so stuff deep in the GraphQL schema can get to it
-before do
-  Thread.current[:baseURL] = request.url.sub(%r{(https?://[^/]+)(.*)}, '\1')
-end
-
-#################################################################################################
 # Send a GraphQL query to the main API, returning the JSON results. Used by various wrappers
 # below (e.g. OAI and DSpace)
 def apiQuery(query, vars = {}, privileged = false)
@@ -133,9 +127,22 @@ class SinatraGraphql < Sinatra::Base
    # Compress things that can benefit
   use Rack::Deflater,
     :if => lambda { |env, status, headers, body|
-      # advice from https://www.itworld.com/article/2693941/cloud-computing/why-it-doesn-t-make-sense-to-gzip-all-content-from-your-web-server.html
+      # advice from https://www.itworld.com/article/2693941/cloud-computing/
+      #                why-it-doesn-t-make-sense-to-gzip-all-content-from-your-web-server.html
       return headers["Content-Length"].to_i > 1400
     }
+
+  #################################################################################################
+  # Add some URL context so stuff deep in the GraphQL schema can get to it
+  before do
+    Thread.current[:baseURL] = request.url.sub(%r{(https?://[^/]+)(.*)}, '\1')
+    Thread.current[:path] = request.path
+  end
+
+  after do
+    Thread.current[:baseURL] = nil
+    Thread.current[:path] = nil
+  end
 
   #################################################################################################
   get '/graphql/iql' do
@@ -186,6 +193,9 @@ class SinatraGraphql < Sinatra::Base
   # DSpace emulator for Symplectic Elements RT2 integration
   post %r{/dspace-.*} do
     serveDSpace("POST")
+  end
+  put %r{/dspace-.*} do
+    serveDSpace("PUT")
   end
   get %r{/dspace-.*} do
     serveDSpace("GET")
