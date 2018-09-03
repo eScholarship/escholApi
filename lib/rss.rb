@@ -49,9 +49,9 @@ def serveUnitRSS(unitID)
         <docs>http://www.rssboard.org/rss-specification</docs>
         <atom:link rel="self" type="application/rss+xml" href="https://escholarship.org/uc/<%=unitID%>/rss"/>
         <ttl>720</ttl>
-        <title>Recent eScholarship items from <%= unitID %></title>
+        <title>Recent <%= unitID %> items</title>
         <link>href="https://escholarship.org/uc/<%= unitID %>/rss"</link>
-        <description>Recent items from "<%= unitName %>" on eScholarship</description>
+        <description>Recent eScholarship items from <%= unitName %></description>
         <pubDate><%= DateTime.now.rfc2822 %></pubDate>
         <%== itemChunks.join("\n") %>
       </channel>
