@@ -50,7 +50,7 @@ def serveUnitRSS(unitID)
         <atom:link rel="self" type="application/rss+xml" href="https://escholarship.org/uc/<%=unitID%>/rss"/>
         <ttl>720</ttl>
         <title>Recent <%= unitID %> items</title>
-        <link>href="https://escholarship.org/uc/<%= unitID %>/rss"</link>
+        <link>https://escholarship.org/uc/<%= unitID %>/rss</link>
         <description>Recent eScholarship items from <%= unitName %></description>
         <pubDate><%= DateTime.now.rfc2822 %></pubDate>
         <%== itemChunks.join("\n") %>
