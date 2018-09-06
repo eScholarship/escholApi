@@ -133,8 +133,8 @@ ItemType = GraphQL::ObjectType.define do
     resolve -> (obj, args, ctx) { obj.updated }
   end
 
-  field :permalink, !types.String, "Permanent link to the item on escholarship.org" do
-    resolve -> (obj, args, ctx) { "https://escholarship.org/uc/item/#{obj.id.sub(/^qt/,'')}" }
+  field :permalink, !types.String, "Permanent link to the item on eScholarship" do
+    resolve -> (obj, args, ctx) { "#{ENV['ESCHOL_FRONTEND_URL']}/uc/item/#{obj.id.sub(/^qt/,'')}" }
   end
 
   field :contentType, types.String, "Main content MIME type (e.g. application/pdf)" do
