@@ -147,7 +147,7 @@ class SinatraGraphql < Sinatra::Base
   #################################################################################################
   # Add some URL context so stuff deep in the GraphQL schema can get to it
   before do
-    Thread.current[:baseURL] = request.url.sub(%r{(https?://[^/]+)(.*)}, '\1')
+    Thread.current[:baseURL] = request.url.sub(%r{(https?://[^/:]+)(.*)}, '\1')
     Thread.current[:path] = request.path
     Thread.current[:privileged] = checkPrivilegedHdr
   end
