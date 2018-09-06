@@ -149,6 +149,12 @@ ItemType = GraphQL::ObjectType.define do
     }
   end
 
+  field :contentSize, types.Int, "Size of PDF/content file in bytes (if applicable)" do
+    resolve -> (obj, args, ctx) {
+      (obj.attrs ? JSON.parse(obj.attrs) : {})['content_length']
+    }
+  end
+
   field :authors, AuthorsType, "All authors (can be long)" do
     argument :first, types.Int, default_value: 100, prepare: ->(val, ctx) {
       (val.nil? || (val >= 1 && val <= 500)) or return GraphQL::ExecutionError.new("'first' must be in range 1..500")
@@ -389,6 +395,18 @@ ItemType = GraphQL::ObjectType.define do
       (obj.attrs ? JSON.parse(obj.attrs) : {})['book_title']
     }
   end
+
+  field :nativeFileName, types.String, "Name of original (pre-PDF-conversion) file" do
+    resolve -> (obj, args, ctx) {
+      (obj.attrs ? JSON.parse(obj.attrs) : {}).dig('native_file', 'name')
+    }
+  end
+
+  field :nativeFileSize, types.String, "Size of original (pre-PDF-conversion) file" do
+    resolve -> (obj, args, ctx) {
+      (obj.attrs ? JSON.parse(obj.attrs) : {}).dig('native_file', 'size')
+    }
+  end
 end
 
 ###################################################################################################
@@ -491,7 +509,7 @@ end
 ###################################################################################################
 class ItemsData
   def initialize(args, ctx, unitID: nil, itemID: nil, personID: nil)
-    statuses = ctx[:privileged] ? ['withdrawn', 'embargoed', 'published'] : ['published']
+    statuses = Thread.current[:privileged] ? ['withdrawn', 'embargoed', 'published'] : ['published']
     query = Item.where(status: statuses)
 
     # If 'more' was specified, decode it and use all the parameters from the original query
@@ -674,7 +692,7 @@ AuthorType = GraphQL::ObjectType.define do
 
   field :email, types.String, "Email (restricted field)" do
     resolve -> (obj, args, ctx) {
-      ctx[:privileged] or return GraphQL::ExecutionError.new("'email' field is restricted")
+      Thread.current[:privileged] or return GraphQL::ExecutionError.new("'email' field is restricted")
       JSON.parse(obj.attrs)['email']
     }
   end
@@ -745,7 +763,7 @@ ContributorType = GraphQL::ObjectType.define do
 
   field :email, types.String, "Email (restricted field)" do
     resolve -> (obj, args, ctx) {
-      ctx[:privileged] or return GraphQL::ExecutionError.new("'email' field is restricted")
+      Thread.current[:privileged] or return GraphQL::ExecutionError.new("'email' field is restricted")
       JSON.parse(obj.attrs)['email']
     }
   end
@@ -796,6 +814,9 @@ SuppFileType = GraphQL::ObjectType.define do
   end
   field :contentType, types.String, "Content MIME type of file, if known" do
     resolve -> (obj, args, ctx) { obj['mimeType'] }
+  end
+  field :size, types.Int, "Size of the file in bytes" do
+    resolve -> (obj, args, ctx) { obj['size'] }
   end
   field :downloadLink, !types.String, "URL to download the file" do
     resolve -> (obj, args, ctx) {

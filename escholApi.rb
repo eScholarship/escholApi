@@ -103,14 +103,14 @@ end
 #################################################################################################
 # Send a GraphQL query to the main API, returning the JSON results. Used by various wrappers
 # below (e.g. OAI and DSpace)
-def apiQuery(query, vars = {}, privileged = false)
+def apiQuery(query, vars = {})
   if vars.empty?
     query = "query { #{query} }"
   else
     query = "query(#{vars.map{|name, pair| "$#{name}: #{pair[0]}"}.join(", ")}) { #{query} }"
   end
   varHash = Hash[vars.map{|name,pair| [name.to_s, pair[1]]}]
-  response = Schema.execute(query, variables: varHash, context: { privileged: privileged })
+  response = Schema.execute(query, variables: varHash)
   response['errors'] and raise("Internal error (graphql): #{response['errors'][0]['message']}")
   response['data']
 end
@@ -133,15 +133,29 @@ class SinatraGraphql < Sinatra::Base
     }
 
   #################################################################################################
+  # A few properties privileged properties are needed by the RT2 connector, and there's a special
+  # HTTP header to pass the API key in.
+  def checkPrivilegedHdr
+    hdr = request.env['HTTP_PRIVILEGED'] or return false
+    credFile = "#{ENV['HOME']}/.passwords/rt2_adapter_creds.json"
+    File.exist?(credFile) or halt(403, "Missing rt2_adapter_creds.json")
+    creds = JSON.parse(File.read(credFile))
+    hdr.strip == creds['graphqlApiKey'] or halt(403, "Incorrect API key")
+    return true
+  end
+
+  #################################################################################################
   # Add some URL context so stuff deep in the GraphQL schema can get to it
   before do
-    Thread.current[:baseURL] = request.url.sub(%r{(https?://[^/]+)(.*)}, '\1')
+    Thread.current[:baseURL] = request.url.sub(%r{(https?://[^/:]+)(.*)}, '\1')
     Thread.current[:path] = request.path
+    Thread.current[:privileged] = checkPrivilegedHdr
   end
 
   after do
     Thread.current[:baseURL] = nil
     Thread.current[:path] = nil
+    Thread.current[:privileged] = nil
   end
 
   #################################################################################################
@@ -188,19 +202,6 @@ class SinatraGraphql < Sinatra::Base
   post '/oai' do
     serveOAI
   end
-
-  #################################################################################################
-  # DSpace emulator for Symplectic Elements RT2 integration
-  post %r{/dspace-.*} do
-    serveDSpace("POST")
-  end
-  put %r{/dspace-.*} do
-    serveDSpace("PUT")
-  end
-  get %r{/dspace-.*} do
-    serveDSpace("GET")
-  end
-
 
   #################################################################################################
   # RSS feeds
