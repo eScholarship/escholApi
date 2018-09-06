@@ -202,4 +202,10 @@ class SinatraGraphql < Sinatra::Base
   post '/oai' do
     serveOAI
   end
+
+  #################################################################################################
+  # RSS feeds
+  get "/rss/unit/:unitID" do |unitID|
+    serveUnitRSS(unitID)
+  end
 end
