@@ -200,4 +200,11 @@ class SinatraGraphql < Sinatra::Base
   get %r{/dspace-.*} do
     serveDSpace("GET")
   end
+
+
+  #################################################################################################
+  # RSS feeds
+  get "/rss/unit/:unitID" do |unitID|
+    serveUnitRSS(unitID)
+  end
 end
