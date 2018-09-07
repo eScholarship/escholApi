@@ -509,7 +509,8 @@ end
 ###################################################################################################
 class ItemsData
   def initialize(args, ctx, unitID: nil, itemID: nil, personID: nil)
-    statuses = Thread.current[:privileged] ? ['withdrawn', 'embargoed', 'published'] : ['published']
+    # Query by status, defaulting to PUBLISHED only
+    statuses = (args['include'] || ['PUBLISHED']).map { |statusEnum| statusEnum.downcase }
     query = Item.where(status: statuses)
 
     # If 'more' was specified, decode it and use all the parameters from the original query
@@ -892,6 +893,7 @@ def defineItemsArgs
                                                encodes the prior set of arguments.}.unindent
   argument :before, DateTimeType, description: "Return only items *before* this date/time (within the `order` ordering)"
   argument :after, DateTimeType, description: "Return only items *after* this date/time (within the `order` ordering)"
+  argument :include, types[ItemStatusEnum], description: "Include items w/ given status(es). Defaults to PUBLISHED only."
   argument :tags, types[types.String], description: "Subset items with keyword, subject, discipline, grant, and/or type"
   argument :order, ItemOrderEnum, default_value: "ADDED_DESC",
            description: %{Sets the ordering of results
