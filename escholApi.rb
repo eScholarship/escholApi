@@ -137,10 +137,8 @@ class SinatraGraphql < Sinatra::Base
   # HTTP header to pass the API key in.
   def checkPrivilegedHdr
     hdr = request.env['HTTP_PRIVILEGED'] or return false
-    credFile = "#{ENV['HOME']}/.passwords/rt2_adapter_creds.json"
-    File.exist?(credFile) or halt(403, "Missing rt2_adapter_creds.json")
-    creds = JSON.parse(File.read(credFile))
-    hdr.strip == creds['graphqlApiKey'] or halt(403, "Incorrect API key")
+    privKey = ENV['ESCHOL_PRIV_API_KEY'] or raise("missing env ESCHOL_PRIV_API_KEY")
+    hdr.strip == privKey or halt(403, "Incorrect API key")
     return true
   end
 
