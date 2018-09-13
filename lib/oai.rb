@@ -322,7 +322,6 @@ class EscholModel < OAI::Provider::Model
       opts[:metadata_prefix] = resump.opts[:metadata_prefix]
       opts[:set] = resump.opts[:set]
       opts.delete(:resumption_token)
-      puts "Got resump #{resump.inspect}, opts=#{opts.inspect}"
     end
 
     # Check for setSpec
