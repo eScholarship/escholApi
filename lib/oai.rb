@@ -64,7 +64,7 @@ class EscholResumptionToken
   # Encode the resumption token to pass to the client
   def to_xml
     xml = Builder::XmlMarkup.new
-    xml.resumptionToken "#{@opts[:metadata_prefix]}:#{opts[:set]}:#{nextCount}:#{total}:#{@more}", {
+    xml.resumptionToken "#{@opts[:metadata_prefix]}:#{@opts[:set]}:#{nextCount}:#{total}:#{@more}", {
       expirationDate: (Time.now + 24*60*60).utc.iso8601,
       cursor: @count,
       completeListSize: @total
@@ -315,6 +315,16 @@ class EscholModel < OAI::Provider::Model
       return EscholRecord.new(record)
     end
 
+    # If there's a resumption token, decode it, and grab the metadata prefix
+    resump = nil
+    if opts[:resumption_token]
+      resump = EscholResumptionToken.decode(opts[:resumption_token])
+      opts[:metadata_prefix] = resump.opts[:metadata_prefix]
+      opts[:set] = resump.opts[:set]
+      opts.delete(:resumption_token)
+      puts "Got resump #{resump.inspect}, opts=#{opts.inspect}"
+    end
+
     # Check for setSpec
     queryParams = {}
     tags = []
@@ -332,13 +342,6 @@ class EscholModel < OAI::Provider::Model
       else
         raise(OAI::NoMatchException.new)
       end
-    end
-
-    # If there's a resumption token, decode it, and grab the metadata prefix
-    resump = nil
-    if opts[:resumption_token]
-      resump = EscholResumptionToken.decode(opts[:resumption_token])
-      opts[:metadata_prefix] = resump.opts[:metadata_prefix]
     end
 
     # For incremental harvest, make sure we include at least 24 hours of data. This is because with
@@ -359,10 +362,10 @@ class EscholModel < OAI::Provider::Model
         order: UPDATED_DESC
         first: 500
         include: [#{Thread.current[:privileged] ? "EMBARGOED,WITHDRAWN,PUBLISHED" : "PUBLISHED"}]
-        #{resump ? ", more: $more" : ''}
-        #{fromTime ? ", after: \"#{(fromTime-1).iso8601}\"" : ''}
-        #{untilTime ? ", before: \"#{untilTime.iso8601}\"" : ''}
-        #{!tags.empty? ? ", tags: [#{tags.join(",")}]" : ''}
+        #{resump ? "\nmore: $more" : ''}
+        #{fromTime ? "\nafter: \"#{(fromTime-1).iso8601}\"" : ''}
+        #{untilTime ? "\nbefore: \"#{untilTime.iso8601}\"" : ''}
+        #{!tags.empty? ? "\ntags: [#{tags.join(",")}]" : ''}
       ) {
         #{resump ? '' : 'total'}
         more
