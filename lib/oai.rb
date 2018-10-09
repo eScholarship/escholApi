@@ -360,7 +360,7 @@ class EscholModel < OAI::Provider::Model
       items(
         order: UPDATED_DESC
         first: 500
-        include: [#{Thread.current[:privileged] ? "EMBARGOED,WITHDRAWN,PUBLISHED" : "PUBLISHED"}]
+        include: [#{Thread.current[:privileged] ? "EMBARGOED,WITHDRAWN,EMPTY,PUBLISHED" : "PUBLISHED"}]
         #{resump ? "\nmore: $more" : ''}
         #{fromTime ? "\nafter: \"#{(fromTime-1).iso8601}\"" : ''}
         #{untilTime ? "\nbefore: \"#{untilTime.iso8601}\"" : ''}
