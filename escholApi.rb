@@ -174,6 +174,7 @@ class SinatraGraphql < Sinatra::Base
   #################################################################################################
   def serveGraphql(params)
     content_type :json
+    headers "Access-Control-Allow-Origin" => "*"
     Schema.execute(params['query'], variables: params['variables']).to_json
   end
 
@@ -184,6 +185,10 @@ class SinatraGraphql < Sinatra::Base
 
   post '/graphql' do
     serveGraphql JSON.parse(request.body.read)
+  end
+
+  options '/graphql' do
+    headers "Access-Control-Allow-Origin" => "*"
   end
 
   #################################################################################################
