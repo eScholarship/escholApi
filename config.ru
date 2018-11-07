@@ -1,3 +1,6 @@
+#\ --quiet
+# Above line disables rackup's default logger, which is remarkably hard to turn off
+
 # Load path and gems/bundler
 $LOAD_PATH << File.expand_path(File.dirname(__FILE__))
 require 'tilt/erb'
@@ -11,11 +14,14 @@ require "find"
 # Load app
 require "escholApi"
 
+# Include every Ruby file in the 'lib' directory
 fileDir = File.expand_path(File.dirname(__FILE__))
 Find.find("lib") { |f|
   require f unless f.match(/\/\..+$/) || File.directory?(f) || !f.match(/\.rb$/)
 }
-#DB << "SET CLIENT_ENCODING TO 'UTF8';"
-DB.loggers << $logger if $logger
 
-run SinatraGraphql
+# Log database queries for now
+DB.loggers << Logger.new(STDOUT)
+
+# Go for it
+run EscholAPI
