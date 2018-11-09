@@ -32,5 +32,6 @@ gem 'unindent'
 gem 'xml-simple'
 
 group :development do
-  gem 'rerun'
+  gem 'ffi', '>= 1.9.25'
+  gem 'rerun', '>= 0.13.0'
 end

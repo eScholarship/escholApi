@@ -15,7 +15,7 @@ GEM
       multipart-post (>= 1.2, < 3)
     faraday_middleware (0.12.2)
       faraday (>= 0.7.4, < 1.0)
-    ffi (1.9.23)
+    ffi (1.9.25)
     graphql (1.7.13)
     graphql-batch (0.3.9)
       graphql (>= 0.8, < 2)
@@ -82,6 +82,7 @@ PLATFORMS
 DEPENDENCIES
   colorize
   erubis
+  ffi (>= 1.9.25)
   graphql
   graphql-batch
   json
@@ -91,7 +92,7 @@ DEPENDENCIES
   puma
   rack-jwt
   rack-protection
-  rerun
+  rerun (>= 0.13.0)
   sequel
   sinatra (>= 2.0.2)
   sinatra-contrib (>= 2.0.2)
