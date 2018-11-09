@@ -8,8 +8,6 @@ require 'bundler'
 require 'logger'
 require 'colorize'
 Bundler.require
-# Local config
-require "find"
 
 require_relative "./lib/sharedTypes.rb"
 require_relative "./lib/appBase.rb"

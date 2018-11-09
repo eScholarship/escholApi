@@ -863,7 +863,7 @@ end
 ###################################################################################################
 AccessQueryType = GraphQL::ObjectType.define do
   name "Query"
-  description "The eScholarship API"
+  description "The eScholarship access API"
 
   field :item, ItemType, "Get item's info given its identifier" do
     argument :id, !types.ID

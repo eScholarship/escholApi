@@ -5,7 +5,7 @@ require 'unindent'
 ###################################################################################################
 SubmitQueryType = GraphQL::ObjectType.define do
   name "SubmitQuery"
-  description "The eScholarship API"
+  description "The eScholarship submission API"
 
   field :foo, !types.String, "A foo thing" do
     resolve -> (obj, args, ctx) {
@@ -17,7 +17,7 @@ end
 ###################################################################################################
 SubmitMutationType = GraphQL::ObjectType.define do
   name "SubmitMutation"
-  description "The eScholarship API"
+  description "The eScholarship submission API"
 
   field :bar, !types.String, "A bar thing" do
     resolve -> (obj, args, ctx) {
