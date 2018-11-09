@@ -11,11 +11,13 @@ Bundler.require
 # Local config
 require "find"
 
-# Include every Ruby file in the 'lib' directory
-fileDir = File.expand_path(File.dirname(__FILE__))
-Find.find("lib").sort { |a,b| a =~ /shared/ ? -1 : b =~ /shared/ ? 1 : a <=> b }.each { |f|
-  require f unless f.match(/\/\..+$/) || File.directory?(f) || !f.match(/\.rb$/)
-}
+require_relative "./lib/sharedTypes.rb"
+require_relative "./lib/appBase.rb"
+require_relative "./lib/database.rb"
+require_relative "./lib/models.rb"
+require_relative "./lib/xmlGen.rb"
+require_relative "./lib/access/accessAPI.rb"
+require_relative "./lib/submit/submitAPI.rb"
 
 # Log database queries while debugging
 DB.loggers << Logger.new(STDOUT)

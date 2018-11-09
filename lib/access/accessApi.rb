@@ -1,5 +1,6 @@
-
-require_relative './appBase'
+require_relative './accessSchema.rb'
+require_relative './oai.rb'
+require_relative './rss.rb'
 
 ###################################################################################################
 class AccessAPI < AppBase

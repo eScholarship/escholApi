@@ -1,5 +1,4 @@
-
-require_relative './appBase'
+require_relative './submitSchema.rb'
 
 ###################################################################################################
 class SubmitAPI < AppBase
