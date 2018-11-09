@@ -104,7 +104,9 @@ end
 ###################################################################################################
 class AppBase < Sinatra::Base
   set public_folder: 'public', static: true
-  set :show_exceptions, false
+  set show_exceptions: false
+  set views: settings.root + "/../views"
+
   # Replace Sinatra's normal logging with one that goes to our overridden stdout puts, so we
   # can include the pid and thread number with each request.
   #set :logging, false

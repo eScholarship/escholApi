@@ -861,7 +861,7 @@ def defineItemsArgs
 end
 
 ###################################################################################################
-QueryType = GraphQL::ObjectType.define do
+AccessQueryType = GraphQL::ObjectType.define do
   name "Query"
   description "The eScholarship API"
 
@@ -929,7 +929,7 @@ QueryType = GraphQL::ObjectType.define do
 end
 
 ###################################################################################################
-EscholSchema = GraphQL::Schema.define do
-  query QueryType
+AccessSchema = GraphQL::Schema.define do
+  query AccessQueryType
   use GraphQL::Batch
 end

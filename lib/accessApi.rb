@@ -2,11 +2,11 @@
 require_relative './appBase'
 
 ###################################################################################################
-class EscholAPI < AppBase
+class AccessAPI < AppBase
 
   def initialize
     super
-    @schema = EscholSchema
+    @schema = AccessSchema
   end
 
   #################################################################################################

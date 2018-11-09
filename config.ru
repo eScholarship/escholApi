@@ -11,17 +11,18 @@ Bundler.require
 # Local config
 require "find"
 
-# Load app
-require "escholApi"
-
 # Include every Ruby file in the 'lib' directory
 fileDir = File.expand_path(File.dirname(__FILE__))
-Find.find("lib") { |f|
+Find.find("lib").sort { |a,b| a =~ /shared/ ? -1 : b =~ /shared/ ? 1 : a <=> b }.each { |f|
   require f unless f.match(/\/\..+$/) || File.directory?(f) || !f.match(/\.rb$/)
 }
 
-# Log database queries for now
+# Log database queries while debugging
 DB.loggers << Logger.new(STDOUT)
 
 # Go for it
-run EscholAPI
+case ENV['API']
+  when 'access'; run AccessAPI
+  when 'submit'; run SubmitAPI
+  else;          raise("Invalid value of API env var: #{ENV['API'].inspect}")
+end
