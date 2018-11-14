@@ -38,3 +38,23 @@ DateTimeType = GraphQL::ScalarType.define do
 
   coerce_result ->(value, ctx) { value.iso8601 }
 end
+
+###################################################################################################
+RoleEnum = GraphQL::EnumType.define do
+  name "Role"
+  description "Publication type of an Item (often ARTICLE)"
+  value("ADVISOR", "Advised on the work (e.g. on a thesis)")
+  value("EDITOR", "Edited the work")
+end
+
+###################################################################################################
+ItemIDSchemeEnum = GraphQL::EnumType.define do
+  name "ItemIDScheme"
+  description "Ordering for item list results"
+  value("ARK", "eSchol (ark:/13030/qt...) or Merritt ARK")
+  value("DOI", "A Digital Object Identifier, with or w/o http://dx.doi.org prefix")
+  value("LBNL_PUB_ID", "LBNL-internal publication ID")
+  value("OA_PUB_ID", "Pub ID on oapolicy.universityofcalifornia.edu")
+  value("OTHER_ID", "All other identifiers")
+end
+

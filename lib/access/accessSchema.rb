@@ -227,7 +227,7 @@ ItemType = GraphQL::ObjectType.define do
     }
   end
 
-  field :units, types[UnitType], "The series/unit(s) associated with this item" do
+  field :units, types[UnitType], "The series/unit id(s) associated with this item" do
     resolve -> (obj, args, ctx) {
       query = UnitItem.where(is_direct: true).order(:item_id, :ordering_of_units).select(:item_id, :unit_id)
       GroupLoader.for(query, :item_id).load(obj.id).then { |unitItems|
@@ -335,7 +335,7 @@ ItemType = GraphQL::ObjectType.define do
     }
   end
 
-  field :localIDs, types[LocalIDType], "Local identifiers, e.g. PubMed ID, LBNL, etc." do
+  field :localIDs, types[LocalIDType], "Local identifiers, e.g. DOI, PubMed ID, LBNL, etc." do
     resolve -> (obj, args, ctx) {
       attrs = obj.attrs ? JSON.parse(obj.attrs) : {}
       ids = attrs['local_ids'] || []
@@ -372,7 +372,7 @@ end
 ###################################################################################################
 LocalIDType = GraphQL::ObjectType.define do
   name "LocalID"
-  description "Local item identifier, e.g. PubMed ID, LBNL ID, etc."
+  description "Local item identifier, e.g. DOI, PubMed ID, LBNL ID, etc."
 
   field :id, !types.String, "The identifier string" do
     resolve -> (obj, args, ctx) { obj['id'] }
@@ -401,17 +401,6 @@ LocalIDType = GraphQL::ObjectType.define do
       end
     }
   end
-end
-
-###################################################################################################
-ItemIDSchemeEnum = GraphQL::EnumType.define do
-  name "ItemIDScheme"
-  description "Ordering for item list results"
-  value("ARK", "eSchol (ark:/13030/qt...) or Merritt ARK")
-  value("DOI", "A Digital Object Identifier, with or w/o http://dx.doi.org prefix")
-  value("LBNL_PUB_ID", "LBNL-internal publication ID")
-  value("OA_PUB_ID", "Pub ID on oapolicy.universityofcalifornia.edu")
-  value("OTHER_ID", "All other identifiers")
 end
 
 ###################################################################################################
@@ -728,14 +717,6 @@ ContributorType = GraphQL::ObjectType.define do
       JSON.parse(obj.attrs)['email']
     }
   end
-end
-
-###################################################################################################
-RoleEnum = GraphQL::EnumType.define do
-  name "Role"
-  description "Publication type of an Item (often ARTICLE)"
-  value("ADVISOR", "Advised on the work (e.g. on a thesis)")
-  value("EDITOR", "Edited the work")
 end
 
 ###################################################################################################
