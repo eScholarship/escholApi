@@ -3,7 +3,7 @@ require 'json'
 require 'unindent'
 
 ###################################################################################################
-SubmitQueryType = GraphQL::ObjectType.define do
+NullQueryType = GraphQL::ObjectType.define do
   name "None"
   description "There is no query API at this endpoint"
 
@@ -138,7 +138,7 @@ SubmitMutationType = GraphQL::ObjectType.define do
 
   field :mintProvisionalID, !MintProvisionalIDOutput do
     description "Create a provisional identifier. Only use this if you really need an ID prior to calling PutItemMetadata."
-    argument :input, !MintProvisionalIDInput, "Source and id that will be eventually deposited"
+    argument :input, !MintProvisionalIDInput, "Source and source-id that will be eventually deposited"
     resolve -> (obj, args, ctx) {
       return { id: "newID" }
     }
@@ -154,6 +154,6 @@ end
 
 ###################################################################################################
 SubmitSchema = GraphQL::Schema.define do
-  query SubmitQueryType
+  query NullQueryType
   mutation SubmitMutationType
 end
