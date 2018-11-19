@@ -137,8 +137,8 @@ SubmitMutationType = GraphQL::ObjectType.define do
   description "The eScholarship submission API"
 
   field :mintProvisionalID, !MintProvisionalIDOutput do
-    description "Create a provisional identifier. Only use this if you really need an ID prior to calling PutItemMetadata."
-    argument :input, !MintProvisionalIDInput, "Source and source-id that will be eventually deposited"
+    description "Create a provisional identifier. Only use this if you really need an ID prior to calling putItem."
+    argument :input, !MintProvisionalIDInput, "Source name and source id that will be eventually deposited"
     resolve -> (obj, args, ctx) {
       return { id: "newID" }
     }
