@@ -10,19 +10,13 @@ require 'colorize'
 Bundler.require
 
 require_relative "./lib/sharedTypes.rb"
-require_relative "./lib/appBase.rb"
 require_relative "./lib/database.rb"
 require_relative "./lib/models.rb"
 require_relative "./lib/xmlGen.rb"
-require_relative "./lib/access/accessAPI.rb"
-require_relative "./lib/submit/submitAPI.rb"
+require_relative "./lib/escholAPI.rb"
 
 # Log database queries while debugging
 DB.loggers << Logger.new(STDOUT)
 
 # Go for it
-case ENV['API']
-  when 'access'; run AccessAPI
-  when 'submit'; run SubmitAPI
-  else;          raise("Invalid value of API env var: #{ENV['API'].inspect}")
-end
+run EscholAPI

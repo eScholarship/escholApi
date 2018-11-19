@@ -151,9 +151,3 @@ SubmitMutationType = GraphQL::ObjectType.define do
     }
   end
 end
-
-###################################################################################################
-SubmitSchema = GraphQL::Schema.define do
-  query NullQueryType
-  mutation SubmitMutationType
-end

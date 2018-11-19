@@ -843,7 +843,7 @@ end
 
 ###################################################################################################
 AccessQueryType = GraphQL::ObjectType.define do
-  name "Query"
+  name "AccessQuery"
   description "The eScholarship access API"
 
   field :item, ItemType, "Get item's info given its identifier" do
@@ -907,10 +907,4 @@ AccessQueryType = GraphQL::ObjectType.define do
       return ItemAuthor.where(person_id: person.id).first
     }
   end
-end
-
-###################################################################################################
-AccessSchema = GraphQL::Schema.define do
-  query AccessQueryType
-  use GraphQL::Batch
 end
