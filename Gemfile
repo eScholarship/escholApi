@@ -27,7 +27,8 @@ gem 'socksify'
 
 # Other
 gem 'erubis'
-gem 'net-ssh-session'
+gem 'httparty'
+gem 'net-ssh'
 gem 'nokogiri'
 gem 'unindent'
 gem 'xml-simple'

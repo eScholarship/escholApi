@@ -145,6 +145,8 @@ class EscholAPI < Sinatra::Base
   #################################################################################################
   # Add some URL context so stuff deep in the GraphQL schema can get to it
   before do
+    ENV['ALLOWED_IPS'] && !Regexp.new(ENV['ALLOWED_IPS']).match(request.ip) and halt(403)
+    ENV['BLOCKED_IPS'] && Regexp.new(ENV['BLOCKED_IPS']).match(request.ip) and halt(403)
     Thread.current[:baseURL] = request.url.sub(%r{(https?://[^/:]+)(.*)}, '\1')
     Thread.current[:path] = request.path
     Thread.current[:privileged] = checkPrivilegedHdr
@@ -175,6 +177,7 @@ class EscholAPI < Sinatra::Base
   def serveGraphql(params)
     content_type :json
     headers "Access-Control-Allow-Origin" => "*"
+    params['query'] =~ /\bmutation\(/i && Thread.current[:privileged] or halt(403) # all mutations must be privileged
     EscholSchema.execute(params['query'], variables: params['variables']).to_json
   end
 
@@ -202,6 +205,7 @@ class EscholAPI < Sinatra::Base
     end
     varHash = Hash[vars.map{|name,pair| [name.to_s, pair[1]]}]
     response = Schema.execute(query, variables: varHash)
+    response.code == 200 or raise("Internal error (graphql): HTTP code #{response.code}")
     response['errors'] and raise("Internal error (graphql): #{response['errors'][0]['message']}")
     response['data']
   end

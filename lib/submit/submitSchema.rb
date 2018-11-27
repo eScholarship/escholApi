@@ -1,6 +1,10 @@
 require 'base64'
 require 'json'
+require 'net/ssh'
 require 'unindent'
+
+$submitServer = ENV['SUBMIT_SERVER'] || raise("missing env SUBMIT_SERVER")
+$submitUser = ENV['SUBMIT_USER'] || raise("missing env SUBMIT_USER")
 
 ###################################################################################################
 NullQueryType = GraphQL::ObjectType.define do
@@ -27,6 +31,21 @@ MintProvisionalIDOutput = GraphQL::ObjectType.define do
   field :id, !types.ID, "The minted item identifier" do
     resolve -> (obj, args, ctx) { obj[:id] }
   end
+end
+
+###################################################################################################
+def mintProvisionalID(input)
+  Thread.current[:privileged] or halt(403)
+
+  sourceName, sourceID = input[:sourceName], input[:sourceID]
+  Net::SSH.start($submitServer, $submitUser) do |ssh|
+    result = ssh.exec!("pwd")
+    puts "result=#{result.inspect}"
+    result2 = ssh.exec!("ls")
+    puts "result2=#{result2.inspect}"
+  end
+
+  return { id: "some_ark" }
 end
 
 ###################################################################################################
@@ -140,7 +159,7 @@ SubmitMutationType = GraphQL::ObjectType.define do
     description "Create a provisional identifier. Only use this if you really need an ID prior to calling putItem."
     argument :input, !MintProvisionalIDInput, "Source name and source id that will be eventually deposited"
     resolve -> (obj, args, ctx) {
-      return { id: "newID" }
+      return mintProvisionalID(args[:input])
     }
   end
 
