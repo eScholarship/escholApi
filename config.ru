@@ -12,6 +12,7 @@ Bundler.require
 require_relative "./lib/sharedTypes.rb"
 require_relative "./lib/database.rb"
 require_relative "./lib/models.rb"
+require_relative "./lib/net.rb"
 require_relative "./lib/xmlGen.rb"
 require_relative "./lib/escholAPI.rb"
 

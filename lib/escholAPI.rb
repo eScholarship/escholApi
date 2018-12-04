@@ -177,7 +177,9 @@ class EscholAPI < Sinatra::Base
   def serveGraphql(params)
     content_type :json
     headers "Access-Control-Allow-Origin" => "*"
-    params['query'] =~ /\bmutation\(/i && Thread.current[:privileged] or halt(403) # all mutations must be privileged
+    if params['query'] =~ /\bmutation\s*\(/i && !Thread.current[:privileged]
+      halt(403) # all mutations must be privileged
+    end
     EscholSchema.execute(params['query'], variables: params['variables']).to_json
   end
 

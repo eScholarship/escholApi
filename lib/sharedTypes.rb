@@ -58,3 +58,10 @@ ItemIDSchemeEnum = GraphQL::EnumType.define do
   value("OTHER_ID", "All other identifiers")
 end
 
+###################################################################################################
+FileVersionEnum = GraphQL::EnumType.define do
+  name "FileVersion"
+  description "Version of a content file, e.g. AUTHOR_VERSION"
+  value("AUTHOR_VERSION", "Author's final version")
+  value("PUBLISHER_VERSION", "Publisher's final version")
+end

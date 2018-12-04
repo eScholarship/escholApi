@@ -1,10 +1,15 @@
 require 'base64'
 require 'json'
-require 'net/ssh'
 require 'unindent'
 
 $submitServer = ENV['SUBMIT_SERVER'] || raise("missing env SUBMIT_SERVER")
 $submitUser = ENV['SUBMIT_USER'] || raise("missing env SUBMIT_USER")
+
+###################################################################################################
+# Make a filename from the outside safe for use as a file on our system.
+def sanitizeFilename(fn)
+  fn.gsub(/[^-A-Za-z0-9_.]/, "_")
+end
 
 ###################################################################################################
 NullQueryType = GraphQL::ObjectType.define do
@@ -39,13 +44,10 @@ def mintProvisionalID(input)
 
   sourceName, sourceID = input[:sourceName], input[:sourceID]
   Net::SSH.start($submitServer, $submitUser) do |ssh|
-    result = ssh.exec!("pwd")
-    puts "result=#{result.inspect}"
-    result2 = ssh.exec!("ls")
-    puts "result2=#{result2.inspect}"
+    result = ssh.exec_sc!("/apps/eschol/erep/xtf/control/tools/mintArk.py '#{sourceName}' '#{sourceID}' provisional")
+    result[:stdout] =~ %r{ark:/?13030/(qt\w{8})} or raise("mintArk failed: #{result}")
+    return { id: "ark:/13030/#{$1}" }
   end
-
-  return { id: "some_ark" }
 end
 
 ###################################################################################################
@@ -115,6 +117,7 @@ PutItemInput = GraphQL::InputObjectType.define do
   argument :type, !ItemTypeEnum, "Publication type; majority are ARTICLE"
   argument :published, !types.String, "Date the item was published"
   argument :contentLink, types.String, "Link from which to fetch the content file (must be .pdf, .doc, or .docx)"
+  argument :contentVersion, FileVersionEnum, "Version of the content file (e.g. AUTHOR_VERSION)"
   argument :authors, types[AuthorInput], "All authors"
   argument :abstract, types.String, "Abstract (may include embedded HTML formatting tags)"
   argument :journal, types.String, "Journal name"
