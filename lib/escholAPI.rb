@@ -112,6 +112,21 @@ EscholSchema = GraphQL::Schema.define do
   use GraphQL::Batch
 end
 
+#################################################################################################
+# Send a GraphQL query to the main API, returning the JSON results. Used by various wrappers
+# below (e.g. OAI and DSpace)
+def apiQuery(query, vars = {})
+  if vars.empty?
+    query = "query { #{query} }"
+  else
+    query = "query(#{vars.map{|name, pair| "$#{name}: #{pair[0]}"}.join(", ")}) { #{query} }"
+  end
+  varHash = Hash[vars.map{|name,pair| [name.to_s, pair[1]]}]
+  response = EscholSchema.execute(query, variables: varHash)
+  response['errors'] and raise("Internal error (graphql): #{response['errors'][0]['message']}")
+  response['data']
+end
+
 ###################################################################################################
 class EscholAPI < Sinatra::Base
   set public_folder: 'public', static: true
@@ -194,22 +209,6 @@ class EscholAPI < Sinatra::Base
 
   options '/graphql' do
     headers "Access-Control-Allow-Origin" => "*"
-  end
-
-  #################################################################################################
-  # Send a GraphQL query to the main API, returning the JSON results. Used by various wrappers
-  # below (e.g. OAI and DSpace)
-  def apiQuery(query, vars = {})
-    if vars.empty?
-      query = "query { #{query} }"
-    else
-      query = "query(#{vars.map{|name, pair| "$#{name}: #{pair[0]}"}.join(", ")}) { #{query} }"
-    end
-    varHash = Hash[vars.map{|name,pair| [name.to_s, pair[1]]}]
-    response = Schema.execute(query, variables: varHash)
-    response.code == 200 or raise("Internal error (graphql): HTTP code #{response.code}")
-    response['errors'] and raise("Internal error (graphql): #{response['errors'][0]['message']}")
-    response['data']
   end
 
   #################################################################################################

@@ -14,6 +14,7 @@ require_relative "./lib/database.rb"
 require_relative "./lib/models.rb"
 require_relative "./lib/net.rb"
 require_relative "./lib/xmlGen.rb"
+require_relative "./lib/xmlutil.rb"
 require_relative "./lib/escholAPI.rb"
 
 # Log database queries while debugging

@@ -9,7 +9,7 @@ class Net::SSH::Connection::Session
   class CommandExecutionFailed < StandardError
   end
 
-  def exec_sc!(command)
+  def exec_sc!(command, input = nil)
     stdout_data,stderr_data = "",""
     exit_code,exit_signal = nil,nil
     self.open_channel do |channel|
@@ -19,6 +19,7 @@ class Net::SSH::Connection::Session
         channel.on_extended_data { |_,_,data| stderr_data += data }
         channel.on_request("exit-status") { |_,data| exit_code = data.read_long }
         channel.on_request("exit-signal") { |_, data| exit_signal = data.read_long }
+        input and channel.send(input)
       end
     end
     self.loop
