@@ -1,4 +1,5 @@
 require 'base64'
+require 'httparty'
 require 'json'
 require 'unindent'
 
@@ -10,7 +11,7 @@ $provisionalIDs = {}
 ###################################################################################################
 # Make a filename from the outside safe for use as a file on our system.
 def sanitizeFilename(fn)
-  fn.gsub(/[^-A-Za-z0-9_.]/, "_")
+  fn.gsub(/[^-A-Za-z0-9_.]/, "_")[0,80]
 end
 
 ###################################################################################################
@@ -28,24 +29,9 @@ def convertFileVersion(version)
 end
 
 ###################################################################################################
-def assignEmbargo(uci, input)
-  if !input[:embargoExpires]
-    uci.delete('embargoDate')
-  elsif uci[:embargoDate] && uci.xpath("source") == 'subi' &&
-          (uci[:state] == 'published' || uci.xpath("history/stateChange[@state='published']"))
-    # Do not allow embargo of published item to be overridden. Why? Because say somebody edits a
-    # record from Subi using Elements -- they may not be aware there was an embargo, and Elements
-    # would blithely un-embargo it.
-    return
-  else
-    uci[:embargoDate] = input[:embargoDate]
-  end
-end
-
-###################################################################################################
 def transformPeople(uci, authOrEd, people)
   return if people.empty?
-  uci.find!("#{authOrEd}s").rebuild { |xml|
+  uci.find!("#{authOrEd}s").build { |xml|
     people.each { |person|
       xml.send(authOrEd) {
         if np = person[:nameParts]
@@ -65,7 +51,7 @@ end
 
 ###################################################################################################
 def convertExtent(uci, input)
-  uci.find!('extent').rebuild { |xml|
+  uci.find!('extent').build { |xml|
     input[:fpage] and xml.fpage(input[:fpage])
     input[:lpage] and xml.lpage(input[:lpage])
   }
@@ -73,7 +59,7 @@ end
 
 ###################################################################################################
 def convertKeywords(uci, kws)
-  uci.find!('keywords').rebuild { |xml|
+  uci.find!('keywords').build { |xml|
     kws.each { |kw|
       xml.keyword kw
     }
@@ -82,7 +68,7 @@ end
 
 ###################################################################################################
 def convertFunding(uci, inFunding)
-  uci.find!('funding').rebuild { |xml|
+  uci.find!('funding').build { |xml|
     inFunding.each { |name|
       xml.grant(:name => name)
     }
@@ -123,22 +109,43 @@ def convertExtLinks(xml, links)
 end
 
 ###################################################################################################
+def addContent(xml, input)
+  xml.file(url: input[:contentLink],
+           originalName: input[:contentFileName] || raise("contentFileName required with contentLink"))
+end
+
+###################################################################################################
+def addSuppFiles(xml, input)
+  xml.supplemental {
+    input[:suppFiles].each { |supp|
+      xml.file(url:supp[:fetchLink]) {
+        xml.originalName supp[:file]
+        xml.mimeType supp[:contentType]
+        xml.fileSize supp[:size]
+      }
+    }
+  }
+end
+
+###################################################################################################
 # Take a PutItemInput and make a UCI record out of it. Note that if you pass existing UCI
 # data in, it will be retained if Elements doesn't override it.
 # NOTE: UCI in this context means "UC Ingest" format, the internal metadata format for eScholarship.
-def uciFromInput(uci, input)
+def uciFromInput(input)
+
+  uci = Nokogiri::XML("<uci:record xmlns:uci='http://www.cdlib.org/ucingest'/>").root
 
   # Top-level attributes
   ark = input[:id]
   uci[:id] = ark.sub(%r{ark:/?13030/}, '')
   uci[:dateStamp] = DateTime.now.iso8601
   uci[:peerReview] = input['isPeerReviewed'] ? "yes" : "no"
-  uci[:state] = uci[:state] || 'new'
-  uci[:stateDate] = uci[:stateDate] || DateTime.now.iso8601
+  uci[:state] = 'new'
+  uci[:stateDate] = DateTime.now.iso8601
   uci[:type] = convertPubType(input[:type])
   #TODO uci[:pubStatus] = convertPubStatus(input[:pubStatus])
   input[:contentVersion] and uci[:externalPubVersion] = convertFileVersion(input[:contentVersion])
-  assignEmbargo(uci, input)
+  input[:embargoExpires] and uci[:embargoDate] = input[:embargoExpires]
 
   # Author and editor metadata.
   input[:authors] and transformPeople(uci, "author", input[:authors])
@@ -158,7 +165,7 @@ def uciFromInput(uci, input)
 
   # Things that go inside <context>
   contextEl = uci.find! 'context'
-  contextEl.rebuild { |xml|
+  contextEl.build { |xml|
       assignSeries(xml, input[:units])
       input[:localIDs] and convertLocalIDs(uci, xml, input[:localIDs])  # also fills in top-level doi field
       input[:issn] and xml.issn(input[:issn])
@@ -171,6 +178,14 @@ def uciFromInput(uci, input)
       input[:externalLinks] and convertExtLinks(xml, input[:externalLinks])
       input[:ucpmsPubType] and xml.ucpmsPubType(input[:ucpmsPubType])
   }
+
+  # Content and supp files
+  if input[:contentLink] || input[:suppFiles]
+    uci.find!('content').build { |xml|
+      input[:contentLink] and addContent(xml, input)
+      input[:suppFiles] and addSuppFiles(xml, input)
+    }
+  end
 
   # Things that go inside <history>
   history = uci.find! 'history'
@@ -185,24 +200,20 @@ end
 
 ###################################################################################################
 def putItem(input)
-  Thread.current[:privileged] or halt(403)
 
   # If no ID provided, mint one now
   fullArk = input[:id] ||
             mintProvisionalID({ sourceName: input[:sourceName], sourceID: input[:sourceID] })[:id]
   shortArk = fullArk[/qt\w{8}/]
 
-  if input[:contentLink]
-    raise("TODO: process content link #{input[:contentLink]}")
-  end
-
-  metaXML = uciFromInput(Nokogiri::XML("<uci:record xmlns:uci='http://www.cdlib.org/ucingest'/>").root, input)
+  # Convert the metadata
+  uci = uciFromInput(input)
 
   # Create the UCI metadata file on the submit server
   Net::SSH.start($submitServer, $submitUser) do |ssh|
 
     # Publish the item
-    metaText = metaXML.to_xml(indent:3)
+    metaText = uci.to_xml(indent:3)
     ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb --depositItem #{shortArk} " +
                  "'Deposited at oapolicy.universityofcalifornia.edu' " +
                  "#{input['submitterEmail']} -", metaText)
@@ -247,8 +258,6 @@ end
 
 ###################################################################################################
 def mintProvisionalID(input)
-  Thread.current[:privileged] or halt(403)
-
   sourceName, sourceID = input[:sourceName], input[:sourceID]
   Net::SSH.start($submitServer, $submitUser) do |ssh|
     result = ssh.exec_sc!("/apps/eschol/erep/xtf/control/tools/mintArk.py '#{sourceName}' '#{sourceID}' provisional")
@@ -327,6 +336,7 @@ PutItemInput = GraphQL::InputObjectType.define do
   argument :isPeerReviewed, !types.Boolean, "Whether the work has undergone a peer review process"
   argument :contentLink, types.String, "Link from which to fetch the content file (must be .pdf, .doc, or .docx)"
   argument :contentVersion, FileVersionEnum, "Version of the content file (e.g. AUTHOR_VERSION)"
+  argument :contentFileName, types.String, "Original name of the content file"
   argument :authors, types[AuthorInput], "All authors"
   argument :abstract, types.String, "Abstract (may include embedded HTML formatting tags)"
   argument :journal, types.String, "Journal name"
@@ -371,6 +381,7 @@ SubmitMutationType = GraphQL::ObjectType.define do
     description "Create a provisional identifier. Only use this if you really need an ID prior to calling putItem."
     argument :input, !MintProvisionalIDInput, "Source name and source id that will be eventually deposited"
     resolve -> (obj, args, ctx) {
+      Thread.current[:privileged] or halt(403)
       return mintProvisionalID(args[:input])
     }
   end
@@ -378,6 +389,7 @@ SubmitMutationType = GraphQL::ObjectType.define do
   field :putItem, !PutItemOutput, "Create (or replace) an item with all its data" do
     argument :input, !PutItemInput
     resolve -> (obj, args, ctx) {
+      Thread.current[:privileged] or halt(403)
       return putItem(args[:input])
     }
   end
