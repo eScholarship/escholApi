@@ -5,6 +5,8 @@ require 'unindent'
 $submitServer = ENV['SUBMIT_SERVER'] || raise("missing env SUBMIT_SERVER")
 $submitUser = ENV['SUBMIT_USER'] || raise("missing env SUBMIT_USER")
 
+$provisionalIDs = {}
+
 ###################################################################################################
 # Make a filename from the outside safe for use as a file on our system.
 def sanitizeFilename(fn)
@@ -130,7 +132,7 @@ def uciFromInput(uci, input)
   ark = input[:id]
   uci[:id] = ark.sub(%r{ark:/?13030/}, '')
   uci[:dateStamp] = DateTime.now.iso8601
-  #TODO uci[:peerReview] = uci[:peerReview] || 'yes'
+  uci[:peerReview] = input['isPeerReviewed'] ? "yes" : "no"
   uci[:state] = uci[:state] || 'new'
   uci[:stateDate] = uci[:stateDate] || DateTime.now.iso8601
   uci[:type] = convertPubType(input[:type])
@@ -188,16 +190,28 @@ def putItem(input)
   # If no ID provided, mint one now
   fullArk = input[:id] ||
             mintProvisionalID({ sourceName: input[:sourceName], sourceID: input[:sourceID] })[:id]
-  puts "fullArk=#{fullArk}"
   shortArk = fullArk[/qt\w{8}/]
+
+  if input[:contentLink]
+    raise("TODO: process content link #{input[:contentLink]}")
+  end
+
+  metaXML = uciFromInput(Nokogiri::XML("<uci:record xmlns:uci='http://www.cdlib.org/ucingest'/>").root, input)
 
   # Create the UCI metadata file on the submit server
   Net::SSH.start($submitServer, $submitUser) do |ssh|
-    metaXML = uciFromInput(Nokogiri::XML("<uci:record xmlns:uci='http://www.cdlib.org/ucingest'/>").root, input)
+
+    # Publish the item
     metaText = metaXML.to_xml(indent:3)
-    puts "metaText: #{metaText}"
-    raise("not yet2")
-    ssh.exec_sc!("cat > /tmp/#{shortArk}.meta.xml", metaXML.to_xml(indent:3))
+    ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb --depositItem #{shortArk} " +
+                 "'Deposited at oapolicy.universityofcalifornia.edu' " +
+                 "#{input['submitterEmail']} -", metaText)
+
+    # Claim the provisional ARK if not already done
+    ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb --claimID #{shortArk} " +
+                 "#{input['sourceName']} #{input['sourceID']}")
+    $provisionalIDs.delete(fullArk)
+
   end
 
   # All done.
@@ -310,6 +324,7 @@ PutItemInput = GraphQL::InputObjectType.define do
   argument :title, !types.String, "Title of the item (may include embedded HTML formatting tags)"
   argument :type, !ItemTypeEnum, "Publication type; majority are ARTICLE"
   argument :published, !types.String, "Date the item was published"
+  argument :isPeerReviewed, !types.Boolean, "Whether the work has undergone a peer review process"
   argument :contentLink, types.String, "Link from which to fetch the content file (must be .pdf, .doc, or .docx)"
   argument :contentVersion, FileVersionEnum, "Version of the content file (e.g. AUTHOR_VERSION)"
   argument :authors, types[AuthorInput], "All authors"
