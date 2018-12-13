@@ -30,7 +30,8 @@ class Net::SSH::Connection::Session
     self.loop
     if exit_code != 0
       raise(CommandFailed, "Command \"#{command}\" exited with code #{exit_code}. " +
-                           "Full stderr:\n  #{stderr_data}")
+                           "Full stderr:\n  #{stderr_data}" +
+                           "Full stdout:\n  #{stdout_data}")
     end
     return {
       stdout:stdout_data,

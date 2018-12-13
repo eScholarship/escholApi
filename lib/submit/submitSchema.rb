@@ -77,6 +77,7 @@ end
 
 ###################################################################################################
 def assignSeries(xml, units)
+  units.empty? and raise("at least one unit must be specified")
   units.each { |id|
     data = apiQuery("unit(id: $unitID) { name type }", { unitID: ["ID!", id] }).dig("unit")
     xml.entity(id: id, entityLabel: data['name'], entityType: data['type'].downcase)
@@ -128,7 +129,7 @@ def addSuppFiles(xml, input)
 end
 
 ###################################################################################################
-# Take a PutItemInput and make a UCI record out of it. Note that if you pass existing UCI
+# Take a DepositItemInput and make a UCI record out of it. Note that if you pass existing UCI
 # data in, it will be retained if Elements doesn't override it.
 # NOTE: UCI in this context means "UC Ingest" format, the internal metadata format for eScholarship.
 def uciFromInput(input)
@@ -142,7 +143,7 @@ def uciFromInput(input)
   uci[:peerReview] = input['isPeerReviewed'] ? "yes" : "no"
   uci[:state] = 'new'
   uci[:stateDate] = DateTime.now.iso8601
-  uci[:type] = convertPubType(input[:type])
+  input[:type] and uci[:type] = convertPubType(input[:type])
   #TODO uci[:pubStatus] = convertPubStatus(input[:pubStatus])
   input[:contentVersion] and uci[:externalPubVersion] = convertFileVersion(input[:contentVersion])
   input[:embargoExpires] and uci[:embargoDate] = input[:embargoExpires]
@@ -155,7 +156,7 @@ def uciFromInput(input)
   end
 
   # Other top-level fields
-  uci.find!('source').content = input[:sourceName].sub("elements", "oa_harvester")
+  input[:sourceName] and uci.find!('source').content = input[:sourceName].sub("elements", "oa_harvester")
   uci.find!('title').content = input[:title]
   input[:abstract] and uci.find!('abstract').content = input[:abstract]
   (input[:fpage] || input[:lpage]) and convertExtent(uci, input)
@@ -166,7 +167,7 @@ def uciFromInput(input)
   # Things that go inside <context>
   contextEl = uci.find! 'context'
   contextEl.build { |xml|
-      assignSeries(xml, input[:units])
+      input[:units] and assignSeries(xml, input[:units])
       input[:localIDs] and convertLocalIDs(uci, xml, input[:localIDs])  # also fills in top-level doi field
       input[:issn] and xml.issn(input[:issn])
       input[:isbn] and xml.isbn(input[:isbn]) # for books and chapters
@@ -189,7 +190,7 @@ def uciFromInput(input)
 
   # Things that go inside <history>
   history = uci.find! 'history'
-  history[:origin] = input[:sourceName].sub("elements", "oa_harvester")
+  input[:sourceName] and history[:origin] = input[:sourceName].sub("elements", "oa_harvester")
   history.at("escholPublicationDate") or history.find!('escholPublicationDate').content = Date.today.iso8601
   history.at("submissionDate") or history.find!('submissionDate').content = Date.today.iso8601
   history.find!('originalPublicationDate').content = input[:published]
@@ -199,7 +200,7 @@ def uciFromInput(input)
 end
 
 ###################################################################################################
-def putItem(input)
+def depositItem(input, replaceOnlyFiles)
 
   # If no ID provided, mint one now
   fullArk = input[:id] ||
@@ -214,19 +215,23 @@ def putItem(input)
 
     # Publish the item
     metaText = uci.to_xml(indent:3)
-    ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb --depositItem #{shortArk} " +
-                 "'Deposited at oapolicy.universityofcalifornia.edu' " +
-                 "#{input['submitterEmail']} -", metaText)
+    ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb " +
+                 "#{replaceOnlyFiles ? "--replaceFiles" : "--depositItem"} " +
+                 "#{shortArk} " +
+                 "'#{replaceOnlyFiles ? "Redeposited" : "Deposited"} at oapolicy.universityofcalifornia.edu' " +
+                 "#{input['submitterEmail'] || "''" } -", metaText)
 
     # Claim the provisional ARK if not already done
-    ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb --claimID #{shortArk} " +
-                 "#{input['sourceName']} #{input['sourceID']}")
-    $provisionalIDs.delete(fullArk)
+    if !replaceOnlyFiles
+      ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb --claimID #{shortArk} " +
+                   "#{input['sourceName']} #{input['sourceID']}")
+      $provisionalIDs.delete(fullArk)
+    end
 
   end
 
   # All done.
-  return { id: fullArk }
+  return { id: fullArk, message: replaceOnlyFiles ? "Redeposited" : "Deposited" }
 end
 
 ###################################################################################################
@@ -322,11 +327,11 @@ LocalIDInput = GraphQL::InputObjectType.define do
 end
 
 ###################################################################################################
-PutItemInput = GraphQL::InputObjectType.define do
-  name "PutItemInput"
+DepositItemInput = GraphQL::InputObjectType.define do
+  name "DepositItemInput"
   description "Information used to create or update item data"
 
-  argument :id, types.ID, "identifier of the item to update/create; omit to mint a new identifier"
+  argument :id, types.ID, "Identifier of the item to update/create; omit to mint a new identifier"
   argument :sourceName, !types.String, "Source of data that will be deposited (eg. 'elements', 'ojs', etc.)"
   argument :sourceID, !types.String, "Identifier or other identifying information of data within the source system"
   argument :submitterEmail, !types.String, "email address of person performing this submission"
@@ -364,11 +369,35 @@ PutItemInput = GraphQL::InputObjectType.define do
   argument :bookTitle, types.String, "Title of the book within which this item appears"
 end
 
-PutItemOutput = GraphQL::ObjectType.define do
-  name "PutItemOutput"
-  description "Output from the mintPermID mutation"
+DepositItemOutput = GraphQL::ObjectType.define do
+  name "DepositItemOutput"
+  description "Output from the depositItem mutation"
   field :id, !types.ID, "The (possibly new) item identifier" do
-    resolve -> (obj, args, ctx) { obj[:id] }
+    resolve -> (obj, args, ctx) { return obj[:id] }
+  end
+  field :message, !types.String, "Message describing what was done" do
+    resolve -> (obj, args, ctx) { return obj[:message] }
+  end
+end
+
+###################################################################################################
+ReplaceFilesInput = GraphQL::InputObjectType.define do
+  name "ReplaceFilesInput"
+  description "Information used to replace all files (and external links) of an existing item"
+
+  argument :id, !types.ID, "Identifier of the item to update"
+  argument :contentLink, types.String, "Link from which to fetch the content file (must be .pdf, .doc, or .docx)"
+  argument :contentVersion, FileVersionEnum, "Version of the content file (e.g. AUTHOR_VERSION)"
+  argument :contentFileName, types.String, "Original name of the content file"
+  argument :suppFiles, types[SuppFileInput], "Supplemental material (if any)"
+  argument :externalLinks, types[types.String], "Published web location(s) external to eScholarshp"
+end
+
+ReplaceFilesOutput = GraphQL::ObjectType.define do
+  name "ReplaceFilesOutput"
+  description "Output from the replaceFiles mutation"
+  field :message, !types.String, "Message describing what was done" do
+    resolve -> (obj, args, ctx) { return obj[:message] }
   end
 end
 
@@ -378,7 +407,7 @@ SubmitMutationType = GraphQL::ObjectType.define do
   description "The eScholarship submission API"
 
   field :mintProvisionalID, !MintProvisionalIDOutput do
-    description "Create a provisional identifier. Only use this if you really need an ID prior to calling putItem."
+    description "Create a provisional identifier. Only use this if you really need an ID prior to calling depositItem."
     argument :input, !MintProvisionalIDInput, "Source name and source id that will be eventually deposited"
     resolve -> (obj, args, ctx) {
       Thread.current[:privileged] or halt(403)
@@ -386,11 +415,19 @@ SubmitMutationType = GraphQL::ObjectType.define do
     }
   end
 
-  field :putItem, !PutItemOutput, "Create (or replace) an item with all its data" do
-    argument :input, !PutItemInput
+  field :depositItem, !DepositItemOutput, "Create (or replace) an item with all its data" do
+    argument :input, !DepositItemInput
     resolve -> (obj, args, ctx) {
       Thread.current[:privileged] or halt(403)
-      return putItem(args[:input])
+      return depositItem(args[:input], false)  # replaceOnlyFiles = false
+    }
+  end
+
+  field :replaceFiles, !ReplaceFilesOutput, "Replace just the files (and external links) of an existing item" do
+    argument :input, !ReplaceFilesInput
+    resolve -> (obj, args, ctx) {
+      Thread.current[:privileged] or halt(403)
+      return depositItem(args[:input], true)  # replaceOnlyFiles = true
     }
   end
 end
