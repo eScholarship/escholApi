@@ -1,3 +1,7 @@
+require_relative './access/oai.rb'
+require_relative './access/rss.rb'
+require_relative "./access/accessSchema.rb"
+require_relative "./submit/submitSchema.rb"
 
 # Make it clear where the new session starts in the log file.
 STDOUT.write "\n=====================================================================================\n"
@@ -27,7 +31,7 @@ end
 ###################################################################################################
 class StdoutLogger
   def << (str)
-    puts(str)
+    puts str
   end
 end
 
@@ -78,6 +82,7 @@ class AccessLogger
     else
       logger << msg
     end
+    return true
   end
 
   def extract_content_length(headers)
@@ -100,6 +105,13 @@ class AccessLogger
   end
 end
 
+###################################################################################################
+EscholSchema = GraphQL::Schema.define do
+  query AccessQueryType
+  mutation SubmitMutationType
+  use GraphQL::Batch
+end
+
 #################################################################################################
 # Send a GraphQL query to the main API, returning the JSON results. Used by various wrappers
 # below (e.g. OAI and DSpace)
@@ -110,18 +122,21 @@ def apiQuery(query, vars = {})
     query = "query(#{vars.map{|name, pair| "$#{name}: #{pair[0]}"}.join(", ")}) { #{query} }"
   end
   varHash = Hash[vars.map{|name,pair| [name.to_s, pair[1]]}]
-  response = Schema.execute(query, variables: varHash)
+  response = EscholSchema.execute(query, variables: varHash)
   response['errors'] and raise("Internal error (graphql): #{response['errors'][0]['message']}")
   response['data']
 end
 
 ###################################################################################################
-class SinatraGraphql < Sinatra::Base
+class EscholAPI < Sinatra::Base
   set public_folder: 'public', static: true
-  set :show_exceptions, false
+  set show_exceptions: false
+  set views: settings.root + "/../views"
+
   # Replace Sinatra's normal logging with one that goes to our overridden stdout puts, so we
   # can include the pid and thread number with each request.
-  set :logging, false
+  #set :logging, false
+  #disable :logging
   use AccessLogger, $stdoutLogger
 
    # Compress things that can benefit
@@ -145,6 +160,8 @@ class SinatraGraphql < Sinatra::Base
   #################################################################################################
   # Add some URL context so stuff deep in the GraphQL schema can get to it
   before do
+    ENV['ALLOWED_IPS'] && !Regexp.new(ENV['ALLOWED_IPS']).match(request.ip) and halt(403)
+    ENV['BLOCKED_IPS'] && Regexp.new(ENV['BLOCKED_IPS']).match(request.ip) and halt(403)
     Thread.current[:baseURL] = request.url.sub(%r{(https?://[^/:]+)(.*)}, '\1')
     Thread.current[:path] = request.path
     Thread.current[:privileged] = checkPrivilegedHdr
@@ -175,7 +192,11 @@ class SinatraGraphql < Sinatra::Base
   def serveGraphql(params)
     content_type :json
     headers "Access-Control-Allow-Origin" => "*"
-    Schema.execute(params['query'], variables: params['variables']).to_json
+    if params['query'] =~ /\bmutation\s*\(/i && !Thread.current[:privileged]
+      halt(403) # all mutations must be privileged
+    end
+    EscholSchema.execute(params['query'].gsub("%25", "%"),
+                         variables: params['variables'].gsub("%25", "%")).to_json
   end
 
   get '/graphql' do
@@ -190,6 +211,10 @@ class SinatraGraphql < Sinatra::Base
   options '/graphql' do
     headers "Access-Control-Allow-Origin" => "*"
   end
+
+  #################################################################################################
+  # Note: GraphQL stuff is handled in AppBase
+  #################################################################################################
 
   #################################################################################################
   def serveOAI

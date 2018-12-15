@@ -50,46 +50,6 @@ class GroupLoader < GraphQL::Batch::Loader
 end
 
 ###################################################################################################
-DateType = GraphQL::ScalarType.define do
-  name "Date"
-  description %{A date in ISO-8601 format. Example: "2018-03-09"}
-
-  coerce_input ->(value, ctx) do
-    begin
-      Date.iso8601(value)
-    rescue ArgumentError
-      raise GraphQL::CoercionError, "cannot coerce `#{value.inspect}` to Date; must be ISO-8601 format"
-    end
-  end
-
-  coerce_result ->(value, ctx) { (value.instance_of?(Date) ? value : Date.iso8601(value)).iso8601 }
-end
-
-###################################################################################################
-DateTimeType = GraphQL::ScalarType.define do
-  name "DateTime"
-  description %{A date and time in ISO-8601 format, including timezone.
-                Example: "2018-03-09T15:02:42-08:00"
-                If you don't specify the time, midnight (server-local) will be used.}.unindent
-
-  coerce_input ->(value, ctx) do
-    begin
-      # Normalize timezone to localtime
-      Time.iso8601(value).localtime.to_datetime
-    rescue ArgumentError
-      begin
-        # Synthesize timezone
-        (Date.iso8601(value).to_time - Time.now.utc_offset).to_datetime
-      rescue ArgumentError
-        raise GraphQL::CoercionError, "cannot coerce `#{value.inspect}` to DateTime; must be ISO-8601 format"
-      end
-    end
-  end
-
-  coerce_result ->(value, ctx) { value.iso8601 }
-end
-
-###################################################################################################
 def loadFilteredUnits(unitIDs, emptyRet = nil)
   unitIDs or return emptyRet
   RecordLoader.for(Unit).load_many(unitIDs).then { |units|
@@ -152,6 +112,13 @@ ItemType = GraphQL::ObjectType.define do
   field :contentSize, types.Int, "Size of PDF/content file in bytes (if applicable)" do
     resolve -> (obj, args, ctx) {
       (obj.attrs ? JSON.parse(obj.attrs) : {})['content_length']
+    }
+  end
+
+  # TODO: Test this
+  field :contentVersion, FileVersionEnum, "Version of a content file, e.g. AUTHOR_VERSION" do
+    resolve -> (obj, args, ctx) {
+      !!((obj.attrs ? JSON.parse(obj.attrs) : {})['content_version'])
     }
   end
 
@@ -267,7 +234,7 @@ ItemType = GraphQL::ObjectType.define do
     }
   end
 
-  field :units, types[UnitType], "The series/unit(s) associated with this item" do
+  field :units, types[UnitType], "The series/unit id(s) associated with this item" do
     resolve -> (obj, args, ctx) {
       query = UnitItem.where(is_direct: true).order(:item_id, :ordering_of_units).select(:item_id, :unit_id)
       GroupLoader.for(query, :item_id).load(obj.id).then { |unitItems|
@@ -375,7 +342,7 @@ ItemType = GraphQL::ObjectType.define do
     }
   end
 
-  field :localIDs, types[LocalIDType], "Local identifiers, e.g. PubMed ID, LBNL, etc." do
+  field :localIDs, types[LocalIDType], "Local identifiers, e.g. DOI, PubMed ID, LBNL, etc." do
     resolve -> (obj, args, ctx) {
       attrs = obj.attrs ? JSON.parse(obj.attrs) : {}
       ids = attrs['local_ids'] || []
@@ -407,12 +374,18 @@ ItemType = GraphQL::ObjectType.define do
       (obj.attrs ? JSON.parse(obj.attrs) : {}).dig('native_file', 'size')
     }
   end
+
+  field :isPeerReviewed, types.Boolean, "Whether the work has undergone a peer review process" do
+    resolve -> (obj, args, ctx) {
+      !!((obj.attrs ? JSON.parse(obj.attrs) : {})['is_peer_reviewed'])
+    }
+  end
 end
 
 ###################################################################################################
 LocalIDType = GraphQL::ObjectType.define do
   name "LocalID"
-  description "Local item identifier, e.g. PubMed ID, LBNL ID, etc."
+  description "Local item identifier, e.g. DOI, PubMed ID, LBNL ID, etc."
 
   field :id, !types.String, "The identifier string" do
     resolve -> (obj, args, ctx) { obj['id'] }
@@ -441,17 +414,6 @@ LocalIDType = GraphQL::ObjectType.define do
       end
     }
   end
-end
-
-###################################################################################################
-ItemIDSchemeEnum = GraphQL::EnumType.define do
-  name "ItemIDScheme"
-  description "Ordering for item list results"
-  value("ARK", "eSchol (ark:/13030/qt...) or Merritt ARK")
-  value("DOI", "A Digital Object Identifier, with or w/o http://dx.doi.org prefix")
-  value("LBNL_PUB_ID", "LBNL-internal publication ID")
-  value("OA_PUB_ID", "Pub ID on oapolicy.universityofcalifornia.edu")
-  value("OTHER_ID", "All other identifiers")
 end
 
 ###################################################################################################
@@ -771,14 +733,6 @@ ContributorType = GraphQL::ObjectType.define do
 end
 
 ###################################################################################################
-RoleEnum = GraphQL::EnumType.define do
-  name "Role"
-  description "Publication type of an Item (often ARTICLE)"
-  value("ADVISOR", "Advised on the work (e.g. on a thesis)")
-  value("EDITOR", "Edited the work")
-end
-
-###################################################################################################
 NamePartsType = GraphQL::ObjectType.define do
   name "NameParts"
   description "Individual access to parts of the name, generally only used in special cases"
@@ -901,9 +855,9 @@ def defineItemsArgs
 end
 
 ###################################################################################################
-QueryType = GraphQL::ObjectType.define do
-  name "Query"
-  description "The eScholarship API"
+AccessQueryType = GraphQL::ObjectType.define do
+  name "AccessQuery"
+  description "The eScholarship access API"
 
   field :item, ItemType, "Get item's info given its identifier" do
     argument :id, !types.ID
@@ -966,10 +920,4 @@ QueryType = GraphQL::ObjectType.define do
       return ItemAuthor.where(person_id: person.id).first
     }
   end
-end
-
-###################################################################################################
-Schema = GraphQL::Schema.define do
-  query QueryType
-  use GraphQL::Batch
 end
