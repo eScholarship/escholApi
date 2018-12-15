@@ -65,3 +65,12 @@ FileVersionEnum = GraphQL::EnumType.define do
   value("AUTHOR_VERSION", "Author's final version")
   value("PUBLISHER_VERSION", "Publisher's final version")
 end
+
+###################################################################################################
+PubRelationEnum = GraphQL::EnumType.define do
+  name "PubRelation"
+  description "Relationship of this publication to eScholarship"
+  value("INTERNAL_PUB", "Originally published on eScholarship")
+  value("EXTERNAL_PUB", "Published externally to eScholarship before deposit")
+  value("EXTERNAL_ACCEPT", "Accepted and will be published externally to eScholarship post-deposit")
+end

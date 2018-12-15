@@ -69,8 +69,8 @@ end
 ###################################################################################################
 def convertFunding(uci, inFunding)
   uci.find!('funding').build { |xml|
-    inFunding.each { |name|
-      xml.grant(:name => name)
+    inFunding.each { |info|
+      xml.grant(:name => info[:name], :reference => info[:reference])
     }
   }
 end
@@ -94,7 +94,7 @@ def convertLocalIDs(uci, contextXML, ids)
       contextXML.localID(:type => 'lbnl') { contextXML.text(lid[:id]) }
     when 'OA_PUB_ID'
       contextXML.localID(:type => 'oa_harvester') { contextXML.text(lid[:id]) }
-    when 'OTHER'
+    when 'OTHER_ID'
       contextXML.localID(:type => lid[:subScheme]) { contextXML.text(lid[:id]) }
     else
       raise("unrecognized scheme #{lid[:scheme]}")
@@ -129,6 +129,30 @@ def addSuppFiles(xml, input)
 end
 
 ###################################################################################################
+def convertPubRelation(relation)
+  case relation
+    when 'INTERNAL_PUB'; "internalPub"
+    when 'EXTERNAL_PUB'; "externalPub"
+    when 'EXTERNAL_ACCEPT'; "externalAccept"
+    else raise("unknown relation value #{relation.inspect}")
+  end
+end
+
+###################################################################################################
+def convertRights(rights)
+  case rights
+    when "CC BY";       "cc1"
+    when "CC BY-SA";    "cc2"
+    when "CC BY-ND";    "cc3"
+    when "CC BY-NC";    "cc4"
+    when "CC BY-NC-SA"; "cc5"
+    when "CC BY-NC-ND"; "cc6"
+    when nil;           "public"
+    else raise("unexpected rights value: #{rights.inspect}")
+  end
+end
+
+###################################################################################################
 # Take a DepositItemInput and make a UCI record out of it. Note that if you pass existing UCI
 # data in, it will be retained if Elements doesn't override it.
 # NOTE: UCI in this context means "UC Ingest" format, the internal metadata format for eScholarship.
@@ -144,9 +168,12 @@ def uciFromInput(input)
   uci[:state] = 'new'
   uci[:stateDate] = DateTime.now.iso8601
   input[:type] and uci[:type] = convertPubType(input[:type])
-  #TODO uci[:pubStatus] = convertPubStatus(input[:pubStatus])
+  input[:pubRelation] and uci[:pubStatus] = convertPubRelation(input[:pubRelation])
   input[:contentVersion] and uci[:externalPubVersion] = convertFileVersion(input[:contentVersion])
   input[:embargoExpires] and uci[:embargoDate] = input[:embargoExpires]
+
+  # Special pseudo-field to record feed metadata link
+  input[:sourceFeedLink] and uci.find!('feedLink').content = input[:sourceFeedLink]
 
   # Author and editor metadata.
   input[:authors] and transformPeople(uci, "author", input[:authors])
@@ -161,8 +188,8 @@ def uciFromInput(input)
   input[:abstract] and uci.find!('abstract').content = input[:abstract]
   (input[:fpage] || input[:lpage]) and convertExtent(uci, input)
   input[:keywords] and convertKeywords(uci, input[:keywords])
-  uci.find!('rights').content = input[:rights] || 'public'
-  input[:grants] and convertFunding(metaHash, uci)
+  uci.find!('rights').content = convertRights(input[:rights])
+  input[:grants] and convertFunding(uci, input[:grants])
 
   # Things that go inside <context>
   contextEl = uci.find! 'context'
@@ -327,6 +354,15 @@ LocalIDInput = GraphQL::InputObjectType.define do
 end
 
 ###################################################################################################
+GrantInput = GraphQL::InputObjectType.define do
+  name "GrantInput"
+  description "Name and reference of linked grant funding"
+
+  argument :name, !types.String, "The full name of the agency and grant"
+  argument :reference, !types.String, "Reference code of the grant"
+end
+
+###################################################################################################
 DepositItemInput = GraphQL::InputObjectType.define do
   name "DepositItemInput"
   description "Information used to create or update item data"
@@ -334,6 +370,7 @@ DepositItemInput = GraphQL::InputObjectType.define do
   argument :id, types.ID, "Identifier of the item to update/create; omit to mint a new identifier"
   argument :sourceName, !types.String, "Source of data that will be deposited (eg. 'elements', 'ojs', etc.)"
   argument :sourceID, !types.String, "Identifier or other identifying information of data within the source system"
+  argument :sourceFeedLink, types.String, "Original feed data from the source (if any)"
   argument :submitterEmail, !types.String, "email address of person performing this submission"
   argument :title, !types.String, "Title of the item (may include embedded HTML formatting tags)"
   argument :type, !ItemTypeEnum, "Publication type; majority are ARTICLE"
@@ -356,7 +393,7 @@ DepositItemInput = GraphQL::InputObjectType.define do
   argument :subjects, types[types.String], "Subject terms (unrestricted) applying to this item"
   argument :keywords, types[types.String], "Keywords (unrestricted) applying to this item"
   argument :disciplines, types[types.String], "Disciplines applying to this item"
-  argument :grants, types[types.String], "Funding grants linked to this item"
+  argument :grants, types[GrantInput], "Funding grants linked to this item"
   argument :language, types.String, "Language specification (ISO 639-2 code)"
   argument :embargoExpires, DateType, "Embargo expiration date (if any)"
   argument :rights, types.String, "License (none, or cc-by-nd, etc.)"
@@ -367,6 +404,7 @@ DepositItemInput = GraphQL::InputObjectType.define do
   argument :localIDs, types[LocalIDInput], "Local identifiers, e.g. DOI, PubMed ID, LBNL, etc."
   argument :externalLinks, types[types.String], "Published web location(s) external to eScholarshp"
   argument :bookTitle, types.String, "Title of the book within which this item appears"
+  argument :pubRelation, PubRelationEnum, "Publication relationship of this item to eScholarship"
 end
 
 DepositItemOutput = GraphQL::ObjectType.define do
