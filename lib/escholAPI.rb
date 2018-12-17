@@ -195,8 +195,8 @@ class EscholAPI < Sinatra::Base
     if params['query'] =~ /\bmutation\s*\(/i && !Thread.current[:privileged]
       halt(403) # all mutations must be privileged
     end
-    EscholSchema.execute(params['query'].gsub("%25", "%"),
-                         variables: params['variables'].gsub("%25", "%")).to_json
+    EscholSchema.execute(params['query'],
+                         variables: params['variables']).to_json
   end
 
   get '/graphql' do
