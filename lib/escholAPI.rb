@@ -189,6 +189,16 @@ class EscholAPI < Sinatra::Base
   end
 
   #################################################################################################
+  # Error handling - include call stack for upper layers to report
+  error 500 do
+    e = env['sinatra.error']
+    content_type "text/plain"
+    return "Unhandled exception: #{e.message}\n" +
+           "eSchol API backtrace:\n" +
+           "\t#{e.backtrace.join("\n\t")}\n"
+  end
+
+  #################################################################################################
   def serveGraphql(params)
     content_type :json
     headers "Access-Control-Allow-Origin" => "*"
