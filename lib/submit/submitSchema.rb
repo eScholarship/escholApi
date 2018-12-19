@@ -240,6 +240,14 @@ def depositItem(input, replaceOnlyFiles)
   # Create the UCI metadata file on the submit server
   Net::SSH.start($submitServer, $submitUser) do |ssh|
 
+    # Verify that the ARK isn't a dupe for this publication ID (can happen if old incomplete
+    # items aren't properly cleaned up).
+    if !replaceOnlyFiles
+      ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb --checkID #{shortArk} " +
+                   "#{input['sourceName']} #{input['sourceID']}")
+      $provisionalIDs.delete(fullArk)
+    end
+
     # Publish the item
     metaText = uci.to_xml(indent:3)
     ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb " +
