@@ -448,6 +448,25 @@ ReplaceFilesOutput = GraphQL::ObjectType.define do
 end
 
 ###################################################################################################
+WithdrawItemInput = GraphQL::InputObjectType.define do
+  name "WithdrawItemInput"
+  description "Input to the withdrawItem mutation"
+
+  argument :id, !types.ID, "Identifier of the item to withdraw"
+  argument :publicMessage, !types.String, "Public message to display in place of the withdrawn item"
+  argument :internalComment, types.String, "(Optional) Non-public administrative comment (e.g. ticket URL)"
+  argument :redirectTo, types.ID, "(Optional) Identifier of the item to redirect to"
+end
+
+WithdrawItemOutput = GraphQL::ObjectType.define do
+  name "WithdrawItemOutput"
+  description "Output from the withdrawItem mutation"
+  field :message, !types.String, "Message describing the outcome" do
+    resolve -> (obj, args, ctx) { return obj[:message] }
+  end
+end
+
+###################################################################################################
 SubmitMutationType = GraphQL::ObjectType.define do
   name "SubmitMutation"
   description "The eScholarship submission API"
@@ -474,6 +493,14 @@ SubmitMutationType = GraphQL::ObjectType.define do
     resolve -> (obj, args, ctx) {
       Thread.current[:privileged] or halt(403)
       return depositItem(args[:input], true)  # replaceOnlyFiles = true
+    }
+  end
+
+  field :withdrawItem, !WithdrawItemOutput, "Permanently withdraw, and optionally redirect, an existing item" do
+    argument :input, !WithdrawItemInput
+    resolve -> (obj, args, ctx) {
+      Thread.current[:privileged] or halt(403)
+      return withdrawItem(args[:input])
     }
   end
 end
