@@ -270,6 +270,12 @@ def depositItem(input, replaceOnlyFiles)
 end
 
 ###################################################################################################
+def bashEscape(str)
+  # See the second answer at: https://stackoverflow.com/questions/6306386/
+  return "'#{str.gsub("'", "'\\\\''")}'"    # gsub: "\\\\" in makes one "\" out
+end
+
+###################################################################################################
 def withdrawItem(input)
 
   # Grab the ID
@@ -279,10 +285,9 @@ def withdrawItem(input)
   # Do the rest of the work on the submit server
   Net::SSH.start($submitServer, $submitUser) do |ssh|
     cmd = "/apps/eschol/erep/xtf/control/tools/withdrawItem.py -yes "
-    cmd += "-m '#{input[:publicMessage].gsub("'", "'\\\\''")}' "    # gsub: "\\\\" in makes one "\" out
-    input[:internalComment] and cmd += "-i #{input[:internalComment].gsub("'", "'\\\\''")} "
-    cmd += shortArk
-    puts "cmd is: #{cmd.inspect}"
+    cmd += "-m #{bashEscape(input[:publicMessage])} "
+    input[:internalComment] and cmd += "-i #{bashEscape(input[:internalComment])} "
+    cmd += bashEscape(shortArk)
     result = ssh.exec_sc!(cmd)
     result[:stdout] =~ %r{withdrawn}i or raise("withdrawItem.py failed: #{result}")
   end
