@@ -12,6 +12,8 @@ end
 class Person < Sequel::Model(:people)
   unrestrict_primary_key
 end
+class Redirect < Sequel::Model
+end
 class Section < Sequel::Model
 end
 class Unit < Sequel::Model

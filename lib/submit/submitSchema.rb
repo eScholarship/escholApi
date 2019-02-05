@@ -279,17 +279,31 @@ end
 def withdrawItem(input)
 
   # Grab the ID
-  fullArk = input[:id]
-  shortArk = fullArk[/qt\w{8}/] or halt(400, "invalid id")
+  shortArk = input[:id][/qt\w{8}/] or return GraphQL::ExecutionError.new("invalid id")
 
-  # Do the rest of the work on the submit server
+  # Do the pairtree work on the submit server
   Net::SSH.start($submitServer, $submitUser) do |ssh|
     cmd = "/apps/eschol/erep/xtf/control/tools/withdrawItem.py -yes "
     cmd += "-m #{bashEscape(input[:publicMessage])} "
     input[:internalComment] and cmd += "-i #{bashEscape(input[:internalComment])} "
     cmd += bashEscape(shortArk)
     result = ssh.exec_sc!(cmd)
-    result[:stdout] =~ %r{withdrawn}i or raise("withdrawItem.py failed: #{result}")
+    result[:stdout] =~ %r{withdrawn}i or return GraphQL::ExecutionError.new("withdrawItem.py failed: #{result}")
+
+    ssh.exec_sc!("cd /apps/eschol/eschol5/jschol && " +
+                 "source ./config/env.sh && " +
+                 "./tools/convert.rb --preindex #{shortArk}")
+  end
+
+  # Insert a redirect record if requested
+  if input[:redirectTo]
+    shortRedirectTo = input[:redirectTo][/qt\w{8}/] or return GraphQL::ExecutionError.new("invalid redirectTo id")
+    Redirect.create(
+      :kind      => 'item',
+      :from_path => "/uc/item/#{shortArk.sub(/^qt/,'')}",
+      :to_path   => "/uc/item/#{shortRedirectTo.sub(/^qt/,'')}",
+      :descrip   => input[:internalComment]
+    )
   end
 
   # All done.
