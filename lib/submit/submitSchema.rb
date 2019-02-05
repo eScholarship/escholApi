@@ -270,13 +270,25 @@ def depositItem(input, replaceOnlyFiles)
 end
 
 ###################################################################################################
-NullQueryType = GraphQL::ObjectType.define do
-  name "None"
-  description "There is no query API at this endpoint"
+def withdrawItem(input)
 
-  field :null, types.ID do
-    resolve -> (obj, args, ctx) { nil }
+  # Grab the ID
+  fullArk = input[:id]
+  shortArk = fullArk[/qt\w{8}/] or halt(400, "invalid id")
+
+  # Do the rest of the work on the submit server
+  Net::SSH.start($submitServer, $submitUser) do |ssh|
+    cmd = "/apps/eschol/erep/xtf/control/tools/withdrawItem.py -yes "
+    cmd += "-m '#{input[:publicMessage].gsub("'", "'\\\\''")}' "    # gsub: "\\\\" in makes one "\" out
+    input[:internalComment] and cmd += "-i #{input[:internalComment].gsub("'", "'\\\\''")} "
+    cmd += shortArk
+    puts "cmd is: #{cmd.inspect}"
+    result = ssh.exec_sc!(cmd)
+    result[:stdout] =~ %r{withdrawn}i or raise("withdrawItem.py failed: #{result}")
   end
+
+  # All done.
+  return { message: "Withdrawn" }
 end
 
 ###################################################################################################
