@@ -270,13 +270,44 @@ def depositItem(input, replaceOnlyFiles)
 end
 
 ###################################################################################################
-NullQueryType = GraphQL::ObjectType.define do
-  name "None"
-  description "There is no query API at this endpoint"
+def bashEscape(str)
+  # See the second answer at: https://stackoverflow.com/questions/6306386/
+  return "'#{str.gsub("'", "'\\\\''")}'"    # gsub: "\\\\" in makes one "\" out
+end
 
-  field :null, types.ID do
-    resolve -> (obj, args, ctx) { nil }
+###################################################################################################
+def withdrawItem(input)
+
+  # Grab the ID
+  shortArk = input[:id][/qt\w{8}/] or return GraphQL::ExecutionError.new("invalid id")
+
+  # Do the pairtree work on the submit server
+  Net::SSH.start($submitServer, $submitUser) do |ssh|
+    cmd = "/apps/eschol/erep/xtf/control/tools/withdrawItem.py -yes "
+    cmd += "-m #{bashEscape(input[:publicMessage])} "
+    input[:internalComment] and cmd += "-i #{bashEscape(input[:internalComment])} "
+    cmd += bashEscape(shortArk)
+    result = ssh.exec_sc!(cmd)
+    result[:stdout] =~ %r{withdrawn}i or return GraphQL::ExecutionError.new("withdrawItem.py failed: #{result}")
+
+    ssh.exec_sc!("cd /apps/eschol/eschol5/jschol && " +
+                 "source ./config/env.sh && " +
+                 "./tools/convert.rb --preindex #{shortArk}")
   end
+
+  # Insert a redirect record if requested
+  if input[:redirectTo]
+    shortRedirectTo = input[:redirectTo][/qt\w{8}/] or return GraphQL::ExecutionError.new("invalid redirectTo id")
+    Redirect.create(
+      :kind      => 'item',
+      :from_path => "/uc/item/#{shortArk.sub(/^qt/,'')}",
+      :to_path   => "/uc/item/#{shortRedirectTo.sub(/^qt/,'')}",
+      :descrip   => input[:internalComment]
+    )
+  end
+
+  # All done.
+  return { message: "Withdrawn" }
 end
 
 ###################################################################################################
@@ -448,6 +479,25 @@ ReplaceFilesOutput = GraphQL::ObjectType.define do
 end
 
 ###################################################################################################
+WithdrawItemInput = GraphQL::InputObjectType.define do
+  name "WithdrawItemInput"
+  description "Input to the withdrawItem mutation"
+
+  argument :id, !types.ID, "Identifier of the item to withdraw"
+  argument :publicMessage, !types.String, "Public message to display in place of the withdrawn item"
+  argument :internalComment, types.String, "(Optional) Non-public administrative comment (e.g. ticket URL)"
+  argument :redirectTo, types.ID, "(Optional) Identifier of the item to redirect to"
+end
+
+WithdrawItemOutput = GraphQL::ObjectType.define do
+  name "WithdrawItemOutput"
+  description "Output from the withdrawItem mutation"
+  field :message, !types.String, "Message describing the outcome" do
+    resolve -> (obj, args, ctx) { return obj[:message] }
+  end
+end
+
+###################################################################################################
 SubmitMutationType = GraphQL::ObjectType.define do
   name "SubmitMutation"
   description "The eScholarship submission API"
@@ -474,6 +524,14 @@ SubmitMutationType = GraphQL::ObjectType.define do
     resolve -> (obj, args, ctx) {
       Thread.current[:privileged] or halt(403)
       return depositItem(args[:input], true)  # replaceOnlyFiles = true
+    }
+  end
+
+  field :withdrawItem, !WithdrawItemOutput, "Permanently withdraw, and optionally redirect, an existing item" do
+    argument :input, !WithdrawItemInput
+    resolve -> (obj, args, ctx) {
+      Thread.current[:privileged] or halt(403)
+      return withdrawItem(args[:input])
     }
   end
 end
