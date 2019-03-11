@@ -782,6 +782,85 @@ SuppFileType = GraphQL::ObjectType.define do
 end
 
 ###################################################################################################
+UnitsType = GraphQL::ObjectType.define do
+  name "Units"
+  description "A list of units, with paging capability because there are thousands"
+
+  field :total, !types.Int, "Approximate total units on all pages" do
+    resolve -> (obj, args, ctx) { obj.total }
+  end
+
+  field :nodes, !types[UnitType], "Array of the units on this page" do
+    resolve -> (obj, args, ctx) { obj.nodes }
+  end
+
+  field :more, types.String, "Opaque cursor string for next page" do
+    resolve -> (obj, args, ctx) { obj.more }
+  end
+end
+
+###################################################################################################
+class UnitsData
+  def initialize(args, ctx, ancestorUnit)
+    query = Unit.join(:unit_hier, unit_id: :id).
+                 exclude(status: 'hidden').
+                 where(ancestor_unit: ancestorUnit).
+                 order(:unit_id)
+
+    # If 'more' was specified, decode it and use all the parameters from the original query
+    args['more'] and args = JSON.parse(Base64.urlsafe_decode64(args['more']))
+
+    # If this is a type query, restrict to units of that type
+    if args['type']
+      query = query.where(type: args['type'].downcase)
+    end
+
+    # Record the base query so if 'total' is requested we count without paging
+    @baseQuery = query
+
+    # If this is a 'more' query, add extra constraints so we get the next page (that is,
+    # starting just after the end of the last page)
+    if args['lastID']
+      query = query.where(Sequel.lit("unit_id > ?", args['lastID']))
+    end
+
+    @query = query
+    @limit = args['first'].to_i
+    @args = args.to_h.clone
+  end
+
+  def total
+    @count ||= @baseQuery.count
+  end
+
+  def nodes
+    @nodes ||= @query.limit(@limit).all
+  end
+
+  # If there might be more in the list, encode all the parameters needed to query for
+  # the next page.
+  def more
+    if nodes().length == @limit
+      more = @args.clone
+      more['lastID']   = nodes()[-1].id
+      return Base64.urlsafe_encode64(more.to_json).gsub('=', '')
+    else
+      return nil
+    end
+  end
+end
+
+###################################################################################################
+IssueType = GraphQL::ObjectType.define do
+  name "Issue"
+  description "A single issue of a journal"
+
+  field :volume, types.String, "Volume number (sometimes null for issue-only journals)"
+  field :issue, types.String, "Issue number (sometimes null for volume-only journals)"
+  field :published, !types.String, "Date the item was published"
+end
+
+###################################################################################################
 UnitType = GraphQL::ObjectType.define do
   name "Unit"
   description "A campus, department, series, or other organized unit within eScholarship"
@@ -796,26 +875,59 @@ UnitType = GraphQL::ObjectType.define do
     }
   end
 
+  field :issn, types.String, "ISSN, applies to units of type=JOURNAL only" do
+    resolve -> (obj, args, ctx) {
+      (obj.attrs ? JSON.parse(obj.attrs) : {})['issn']
+    }
+  end
+
   field :items, ItemsType, "Query items in the unit (incl. children)" do
     defineItemsArgs
     resolve -> (obj, args, ctx) { ItemsData.new(args, ctx, unitID: obj.id) }
   end
 
-  field :children, types[UnitType], "Hierarchical children (i.e. sub-units)" do
+  field :children, types[UnitType], "Direct hierarchical children (i.e. sub-units)" do
     resolve -> (obj, args, ctx) {
-      query = UnitHier.where(is_direct: true).order(:ordering).select(:ancestor_unit, :unit_id)
+      query = UnitHier.where(is_direct: true).
+                       exclude(status: 'hidden').
+                       order(:ordering).
+                       select(:ancestor_unit, :unit_id)
       GroupLoader.for(query, :ancestor_unit).load(obj.id).then { |unitHiers|
         unitHiers ? loadFilteredUnits(unitHiers.map { |pu| pu.unit_id }) : nil
       }
     }
   end
 
-  field :parents, types[UnitType], "Hierarchical parent(s) (i.e. owning units)" do
+  field :descendants, UnitsType, "Query all children, grandchildren, etc. of this unit" do
+    argument :first, types.Int, default_value: 100,
+      description: "Number of results to return (values 1..500 are valid)",
+      prepare: ->(val, ctx) {
+        (val.nil? || (val >= 1 && val <= 500)) or return GraphQL::ExecutionError.new("'first' must be in range 1..500")
+        return val
+      }
+    argument :more, types.String, description: %{Opaque string obtained from the `more` field of a prior result,
+                                                 and used to fetch the next set of nodes.
+                                                 Do not specify any other arguments with this one; the string already
+                                                 encodes the prior set of arguments.}.unindent
+    argument :type, UnitTypeEnum, description: "Type of unit, e.g. ORU, SERIES, JOURNAL"
+    resolve -> (obj, args, ctx) {
+      UnitsData.new(args, ctx, obj.id)
+    }
+  end
+
+  field :parents, types[UnitType], "Direct hierarchical parent(s) (i.e. owning units)" do
     resolve -> (obj, args, ctx) {
       query = UnitHier.where(is_direct: true).order(:ordering).select(:ancestor_unit, :unit_id)
       GroupLoader.for(query, :unit_id).load(obj.id).then { |unitHiers|
         unitHiers ? loadFilteredUnits(unitHiers.map { |pu| pu.ancestor_unit }) : nil
       }
+    }
+  end
+
+  field :issues, types[IssueType], "All journal issues published by this unit (only applies if type=JOURNAL)" do
+    resolve -> (obj, args, ctx) {
+      query = Issue.order(:published, :volume, :issue)
+      GroupLoader.for(query, :unit_id).load(obj.id)
     }
   end
 end
