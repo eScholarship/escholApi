@@ -243,13 +243,14 @@ ItemType = GraphQL::ObjectType.define do
     }
   end
 
-  field :tags, types[types.String], "Unified disciplines, keywords, and subjects" do
+  field :tags, types[types.String], "Unified disciplines, keywords, grants, etc." do
     resolve -> (obj, args, ctx) {
       attrs = obj.attrs ? JSON.parse(obj.attrs) : {}
       out = (attrs['disciplines'] || []).map{|s| "discipline:#{s}"} +
             (attrs['keywords'] || []).map{|s| "keyword:#{s}"} +
             (attrs['subjects'] || []).map{|s| "subject:#{s}"} +
             (attrs['grants'] || []).map{|s| "grant:#{s['name']}"} +
+            ["source:#{obj.source}"] +
             ["type:#{obj.genre.sub("dissertation", "etd").upcase.gsub('-','_')}"]
       out.empty? ? nil : out
     }
@@ -499,8 +500,14 @@ class ItemsData
                         ascending ? :id   : Sequel::desc(:id))
 
     # Apply limits as specified
-    args['before'] and query = query.where(Sequel.lit("#{field} < ?", args['before']))
-    args['after']  and query = query.where(Sequel.lit("#{field} > ?", args['after']))
+    if args['before']
+      # Exclusive ('<'), so that queries like "after: 2018-11-01 before: 2018-12-01" work as user expects.
+      query = query.where(Sequel.lit("#{field} < ?", field == :updated ? args['before'] : args['before'].to_date))
+    end
+    if args['after']
+      # Inclusive ('>='), so that queries like "after: 2018-11-01 before: 2018-12-01" work as user expects.
+      query = query.where(Sequel.lit("#{field} >= ?", field == :updated ? args['after'] : args['after'].to_date))
+    end
 
     # Matching on tags if specified
     (args['tags'] || []).each { |tag|
@@ -514,8 +521,10 @@ class ItemsData
         query = query.where(Sequel.lit(%{lower(attrs->"$.grants") like ?}, "%#{$1.downcase}%"))
       elsif tag =~ /^type:(.*)/
         query = query.where(genre: $1.downcase == "etd" ? ["etd", "dissertation"] : $1.downcase.gsub("_", "-"))
+      elsif tag =~ /^source:(.*)/
+        query = query.where(source: $1)
       else
-        raise("tag must start with 'discipline:', 'keyword:', 'subject:', 'grant:', or 'type:'")
+        raise("tags must start with 'discipline:', 'keyword:', 'subject:', 'grant:', 'type:', or 'source:'")
       end
     }
 
@@ -960,7 +969,9 @@ def defineItemsArgs
   argument :before, DateTimeType, description: "Return only items *before* this date/time (within the `order` ordering)"
   argument :after, DateTimeType, description: "Return only items *after* this date/time (within the `order` ordering)"
   argument :include, types[ItemStatusEnum], description: "Include items w/ given status(es). Defaults to PUBLISHED only."
-  argument :tags, types[types.String], description: "Subset items with keyword, subject, discipline, grant, and/or type"
+  argument :tags, types[types.String], description: %{
+             Subset items with keyword, subject, discipline, grant, type, and/or source.
+             E.g. 'tags: ["keyword=food"]' or 'tags: ["grant:USDOE"]'}.unindent
   argument :order, ItemOrderEnum, default_value: "ADDED_DESC",
            description: %{Sets the ordering of results
                           (and affects interpretation of the `before` and `after` arguments)}
