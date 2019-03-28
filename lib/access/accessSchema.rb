@@ -477,7 +477,11 @@ class ItemsData
     query = Item.where(status: statuses)
 
     # If 'more' was specified, decode it and use all the parameters from the original query
-    args['more'] and args = JSON.parse(Base64.urlsafe_decode64(args['more']))
+    if args['more']
+      args = JSON.parse(Base64.urlsafe_decode64(args['more']))
+      args['before'] and args['before'] = DateTime.parse(args['before'])
+      args['after'] and args['after'] = DateTime.parse(args['after'])
+    end
 
     # If this is a unit query, restrict to items within that unit.
     if unitID
