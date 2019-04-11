@@ -267,12 +267,14 @@ end
 class EscholModel < OAI::Provider::Model
   # Earliest update: date of first item in ascending update order
   def earliest
-    @earliest = apiQuery("items(first:1, order:UPDATED_ASC) { nodes { updated } }").dig("items", "nodes", 0, "updated")
+    @earliest = apiQuery("items(first:1, order:UPDATED_ASC, include:[PUBLISHED,EMBARGOED]) { nodes { updated } }").
+                  dig("items", "nodes", 0, "updated")
   end
 
   # Latest update: first item in *descending* update order
   def latest
-    @latest = apiQuery("items(first:1, order:UPDATED_DESC) { nodes { updated } }").dig("items", "nodes", 0, "updated")
+    @latest = apiQuery("items(first:1, order:UPDATED_DESC, include:[PUBLISHED,EMBARGOED]) { nodes { updated } }").
+                dig("items", "nodes", 0, "updated")
   end
 
   # We only advertise one set, "everything", though we internally allow requests for most old sets.
@@ -360,7 +362,7 @@ class EscholModel < OAI::Provider::Model
       items(
         order: UPDATED_DESC
         first: 500
-        include: [#{Thread.current[:privileged] ? "EMBARGOED,WITHDRAWN,EMPTY,PUBLISHED" : "PUBLISHED"}]
+        include: [#{Thread.current[:privileged] ? "EMBARGOED,WITHDRAWN,EMPTY,PUBLISHED" : "PUBLISHED,EMBARGOED"}]
         #{resump ? "\nmore: $more" : ''}
         #{fromTime ? "\nafter: \"#{(fromTime-1).iso8601}\"" : ''}
         #{untilTime ? "\nbefore: \"#{untilTime.iso8601}\"" : ''}
