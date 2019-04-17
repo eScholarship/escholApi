@@ -25,7 +25,8 @@ fi
 
 set -u
 
-VERSION=`date -u +"%Y-%m-%dT%H:%M:%SZ"`
+export TZ=":America/Los_Angeles"
+VERSION=`date -Iseconds`
 DIR=escholApi
 BUCKET=cdlpub-apps
 REGION=us-west-2
@@ -47,9 +48,7 @@ fi
 ZIP="escholApi-$VERSION.zip"
 
 # package app and upload
-# The xargs/find business is to filter out sym links (especially public/node_modules)
 git archive --format=zip HEAD > $ZIP
-
 aws s3 cp $ZIP s3://$BUCKET/$DIR/$ZIP
 rm $ZIP
 
