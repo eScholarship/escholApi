@@ -674,6 +674,16 @@ AuthorType = GraphQL::ObjectType.define do
       JSON.parse(obj.attrs)['ORCID_id']
     }
   end
+
+  field :localIDs, types[LocalIDType], "Local identifiers, e.g. BerkLaw, etc." do
+    resolve -> (obj, args, ctx) {
+      attrs = JSON.parse(obj.attrs)
+      ids = attrs.sort.each.map { |type, id|
+        (type =~ /_id$/ && type != "ORCID_id") ? { 'type' => type.sub('_id', ''), 'id' => id } : nil
+      }.compact
+      ids.empty? ? nil : ids
+    }
+  end
 end
 
 ###################################################################################################
