@@ -30,7 +30,7 @@ VERSION=`date -Iseconds`
 DIR=escholApi
 BUCKET=cdlpub-apps
 REGION=us-west-2
-APPNAME=pub-escholApi-app
+APPNAME=eb-pub-api
 
 # make sure environment actually exists
 env_exists=$(aws elasticbeanstalk describe-environments \
@@ -48,9 +48,9 @@ fi
 ZIP="escholApi-$VERSION.zip"
 
 # package app and upload
-git archive --format=zip HEAD > $ZIP
-aws s3 cp $ZIP s3://$BUCKET/$DIR/$ZIP
-rm $ZIP
+mkdir -p dist
+git ls-files | xargs zip -ry dist/$ZIP   # picks up mods in working dir, unlike 'git archive'
+aws s3 cp dist/$ZIP s3://$BUCKET/$DIR/$ZIP
 
 aws elasticbeanstalk create-application-version \
   --application-name $APPNAME \
