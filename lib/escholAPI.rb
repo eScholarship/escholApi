@@ -3,6 +3,9 @@ require_relative './access/rss.rb'
 require_relative "./access/accessSchema.rb"
 require_relative "./submit/submitSchema.rb"
 
+# On dev and stg we control access with a special cookie
+ACCESS_COOKIE = (ENV['ACCESS_COOKIE'] || '').empty? ? nil : ENV['ACCESS_COOKIE']
+
 # Make it clear where the new session starts in the log file.
 STDOUT.write "\n=====================================================================================\n"
 
@@ -165,6 +168,16 @@ class EscholAPI < Sinatra::Base
     Thread.current[:baseURL] = request.url.sub(%r{(https?://[^/:]+)(.*)}, '\1')
     Thread.current[:path] = request.path
     Thread.current[:privileged] = checkPrivilegedHdr
+
+    # On dev and stg, control access with a special cookie
+    if ACCESS_COOKIE
+      if request.params['access']
+        response.set_cookie(:ACCESS_COOKIE, :value => request.params['access'], :path => "/")
+        ACCESS_COOKIE == request.params['access'] or halt(401, "Not authorized.")
+      elsif request.path != "/chk"
+        ACCESS_COOKIE == request.cookies['ACCESS_COOKIE'] or halt(401, "Not authorized.")
+      end
+    end
   end
 
   after do
