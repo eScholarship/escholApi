@@ -5,6 +5,8 @@ require 'unindent'
 
 $submitServer = ENV['SUBMIT_SERVER'] || raise("missing env SUBMIT_SERVER")
 $submitUser = ENV['SUBMIT_USER'] || raise("missing env SUBMIT_USER")
+$submitSSHKey = (ENV['SUBMIT_SSH_KEY'] || raise("missing env SUBMIT_SSH_KEY")).gsub(/ ([^ ]{10}|----)/, "\n\\1") + "\n"
+$submitSSHOpts = { verify_host_key: :never, key_data: [$submitSSHKey] }
 
 $provisionalIDs = {}
 
@@ -238,7 +240,7 @@ def depositItem(input, replaceOnlyFiles)
   uci = uciFromInput(input)
 
   # Create the UCI metadata file on the submit server
-  Net::SSH.start($submitServer, $submitUser) do |ssh|
+  Net::SSH.start($submitServer, $submitUser, **$submitSSHOpts) do |ssh|
 
     # Verify that the ARK isn't a dupe for this publication ID (can happen if old incomplete
     # items aren't properly cleaned up).
@@ -282,7 +284,7 @@ def withdrawItem(input)
   shortArk = input[:id][/qt\w{8}/] or return GraphQL::ExecutionError.new("invalid id")
 
   # Do the pairtree work on the submit server
-  Net::SSH.start($submitServer, $submitUser) do |ssh|
+  Net::SSH.start($submitServer, $submitUser, **$submitSSHOpts) do |ssh|
     cmd = "/apps/eschol/erep/xtf/control/tools/withdrawItem.py -yes "
     cmd += "-m #{bashEscape(input[:publicMessage])} "
     input[:internalComment] and cmd += "-i #{bashEscape(input[:internalComment])} "
@@ -330,7 +332,7 @@ end
 ###################################################################################################
 def mintProvisionalID(input)
   sourceName, sourceID = input[:sourceName], input[:sourceID]
-  Net::SSH.start($submitServer, $submitUser) do |ssh|
+  Net::SSH.start($submitServer, $submitUser, **$submitSSHOpts) do |ssh|
     result = ssh.exec_sc!("/apps/eschol/erep/xtf/control/tools/mintArk.py '#{sourceName}' '#{sourceID}' provisional")
     result[:stdout] =~ %r{ark:/?13030/(qt\w{8})} or raise("mintArk failed: #{result}")
     return { id: "ark:/13030/#{$1}" }
