@@ -10,4 +10,4 @@ printf "\n== Uninstalling Ruby gems no longer used ==\n"
 bundle clean
 
 printf "\n== Installing node packages ==\n"
-yarn install --silent
+npm install

@@ -72,7 +72,7 @@ ItemType = GraphQL::ObjectType.define do
   end
 
   field :status, !ItemStatusEnum, "Publication status; usually PUBLISHED" do
-    resolve -> (obj, args, ctx) { obj.status.upcase }
+    resolve -> (obj, args, ctx) { obj.status.sub("withdrawn-junk", "withdrawn").upcase }
   end
 
   field :type, !ItemTypeEnum, "Publication type; majority are ARTICLE" do
