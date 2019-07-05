@@ -25,11 +25,19 @@ fi
 
 set -u
 
-VERSION=`date -u +"%Y-%m-%dT%H:%M:%SZ"`
+export TZ=":America/Los_Angeles"
+VERSION=`date -Iseconds`
 DIR=escholApi
 BUCKET=cdlpub-apps
 REGION=us-west-2
-APPNAME=pub-escholApi-app
+APPNAME=eb-pub-api
+
+# make sure we don't push non-master branch to prd
+CUR_BRANCH=`git rev-parse --abbrev-ref HEAD`
+if [[ "$1" == *"prd"* && "$CUR_BRANCH" != "master" ]]; then
+  echo "Sanity check: should only push master branch to prd environment."
+  exit 1
+fi
 
 # make sure environment actually exists
 env_exists=$(aws elasticbeanstalk describe-environments \
@@ -47,11 +55,9 @@ fi
 ZIP="escholApi-$VERSION.zip"
 
 # package app and upload
-# The xargs/find business is to filter out sym links (especially public/node_modules)
-git archive --format=zip HEAD > $ZIP
-
-aws s3 cp $ZIP s3://$BUCKET/$DIR/$ZIP
-rm $ZIP
+mkdir -p dist
+git ls-files | xargs zip -ry dist/$ZIP   # picks up mods in working dir, unlike 'git archive'
+aws s3 cp dist/$ZIP s3://$BUCKET/$DIR/$ZIP
 
 aws elasticbeanstalk create-application-version \
   --application-name $APPNAME \
