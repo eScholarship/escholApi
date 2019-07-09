@@ -343,7 +343,7 @@ ItemType = GraphQL::ObjectType.define do
     }
   end
 
-  field :localIDs, types[LocalIDType], "Local identifiers, e.g. DOI, PubMed ID, LBNL, etc." do
+  field :localIDs, types[LocalIDType], "Local item identifiers, e.g. DOI, PubMed ID, LBNL, etc." do
     resolve -> (obj, args, ctx) {
       attrs = obj.attrs ? JSON.parse(obj.attrs) : {}
       ids = attrs['local_ids'] || []
@@ -471,7 +471,8 @@ end
 
 ###################################################################################################
 class ItemsData
-  def initialize(args, ctx, unitID: nil, itemID: nil, personID: nil)
+  def initialize(args, ctx, unitID: nil, itemID: nil, personID: nil,
+                 authorID: nil, authorScheme: nil, authorSubScheme: nil)
     # Query by status, defaulting to PUBLISHED only
     statuses = (args['include'] || ['PUBLISHED']).map { |statusEnum| statusEnum.downcase }
     query = Item.where(status: statuses)
@@ -492,6 +493,20 @@ class ItemsData
     # no ID, this amounts to a single item.
     if personID
       query = query.where(Sequel.lit("id in (select item_id from item_authors where person_id = ?)", personID))
+    end
+    puts "authorID=#{authorID.inspect} authorScheme=#{authorScheme.inspect} sub=#{authorSubScheme.inspect}"
+    if authorID
+      case authorScheme
+        when 'ARK'
+          query = query.where(Sequel.lit("id in (select item_id from item_authors where person_id = ?)", authorID))
+        when 'ORCID'
+          query = query.where(Sequel.lit("id in (select item_id from item_authors where attrs->>'$.ORCID_id' = ?)", authorID))
+        when 'OTHER_ID'
+          authorSubScheme =~ /^[\w_]+$/ or raise
+          query = query.where(Sequel.lit("id in (select item_id from item_authors " +
+                                         "where attrs->>'$.#{authorSubScheme}_id' = ?)", authorID))
+        else raise
+      end
     end
     if itemID
       query = query.where(id: itemID)
@@ -621,6 +636,36 @@ class AuthorsData
 end
 
 ###################################################################################################
+AuthorIDType = GraphQL::ObjectType.define do
+  name "AuthorID"
+  description "Author identifier, e.g. escholarship, ORCID, other."
+
+  field :id, !types.String, "The identifier string" do
+    resolve -> (obj, args, ctx) { obj['id'] }
+  end
+
+  field :scheme, !AuthorIDSchemeEnum, "The scheme under which the identifier was minted" do
+    resolve -> (obj, args, ctx) {
+      case obj['type']
+        when 'ARK';   "ARK"
+        when 'ORCID'; "ORCID"
+        else          "OTHER_ID"
+      end
+    }
+  end
+
+  field :subScheme, types.String, "If scheme is OTHER_ID, this will be more specific" do
+    resolve -> (obj, args, ctx) {
+      case obj['type']
+        when 'ARK'; nil
+        when 'ORCID'; nil
+        else obj['type']
+      end
+    }
+  end
+end
+
+###################################################################################################
 AuthorType = GraphQL::ObjectType.define do
   name "Author"
   description "A single author (can be a person or organization)"
@@ -656,8 +701,16 @@ AuthorType = GraphQL::ObjectType.define do
   field :items, ItemsType, "Query items by this author" do
     defineItemsArgs
     resolve -> (obj, args, ctx) {
-      if obj.person_id
+      attrs = obj.attrs ? JSON.parse(obj.attrs) : {}
+      idKey = obj[:idSchemeHint] || attrs.keys.find{ |key| key =~ /_id$/ }
+      puts("Scheme hint: #{obj[:idSchemeHint]}")
+      if obj.person_id && !obj[:idSchemeHint]
         ItemsData.new(args, ctx, personID: obj.person_id)
+      elsif idKey
+        ItemsData.new(args, ctx,
+                      authorID: attrs[idKey],
+                      authorScheme: idKey == "ORCID_id" ? "ORCID" : "OTHER_ID",
+                      authorSubScheme: idKey == "ORCID_id" ? nil : idKey.sub(/_id$/, ''))
       else
         itemID = obj.values['itemID']
         itemID or raise("internal error: must have itemID or person_id")
@@ -679,13 +732,14 @@ AuthorType = GraphQL::ObjectType.define do
     }
   end
 
-  field :localIDs, types[LocalIDType], "Local identifiers, e.g. BerkLaw, etc." do
+  field :ids, types[AuthorIDType], "Unified author identifiers, e.g. eschol ARK, ORCID, OTHER." do
     resolve -> (obj, args, ctx) {
       attrs = JSON.parse(obj.attrs)
-      ids = attrs.sort.each.map { |type, id|
-        (type =~ /_id$/ && type != "ORCID_id") ? { 'type' => type.sub('_id', ''), 'id' => id } : nil
-      }.compact
-      ids.empty? ? nil : ids
+      ids = [obj.person_id ? {'type' => 'ARK', 'id' => obj.person_id} : nil] + attrs.sort.each.map { |type, id|
+        type =~ /_id$/ ? { 'type' => type.sub('_id', ''), 'id' => id } : nil
+      }
+      ids.compact!
+      return ids.empty? ? nil : ids
     }
   end
 end
@@ -1041,17 +1095,35 @@ AccessQueryType = GraphQL::ObjectType.define do
     resolve -> (obj, args, ctx) { Unit["root"] }
   end
 
-  field :author, AuthorType, "Get an author by ID or email address" do
+  field :author, AuthorType, "Get an author by ID (scheme optional, defaults to eschol ARK), or email address" do
     argument :id, types.ID
+    argument :scheme, AuthorIDSchemeEnum
+    argument :subScheme, types.String
     argument :email, types.String
     resolve -> (obj, args, ctx) {
-      id, email = args['id'], args['email']
+      id, email, scheme, subScheme = args['id'], args['email'], args['scheme'], args['subScheme']
       if (id && email) || (!id && !email)
         return GraphQL::ExecutionError.new("must specify either 'id' or 'email'")
       elsif args['id']
-        person = Person[args['id']]
-      else
+        case scheme
+          when nil, 'ARK'; person = Person[args['id']]
+          when 'ORCID';
+            record = Person.where(Sequel.lit(%{attrs->>"$.ORCID_id" = ?}, id)).first
+            record or record = ItemAuthor.where(Sequel.lit(%{attrs->>"$.ORCID_id" = ?}, id)).first
+            record and record[:idSchemeHint] = 'ORCID_id'
+            return record
+          when 'OTHER_ID';
+            subScheme =~ /^[\w_]+$/ or return GraphQL::ExecutionError.new("valid subScheme required with 'OTHER' scheme")
+            record = ItemAuthor.where(Sequel.lit(%{attrs->>"$.#{subScheme}_id" = ?}, id)).first
+            record and record[:idSchemeHint] = "#{subScheme}_id"
+            return record
+          else raise
+        end
+      elsif args['email']
         person = Person.where(Sequel.lit(%{lower(attrs->>"$.email") = ?}, email.downcase)).first
+        person or return ItemAuthor.where(Sequel.lit(%{lower(attrs->>"$.email") = ?}, email.downcase)).first
+      else
+        raise
       end
       person or return nil
       return ItemAuthor.where(person_id: person.id).first

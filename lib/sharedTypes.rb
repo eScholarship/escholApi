@@ -50,11 +50,20 @@ end
 ###################################################################################################
 ItemIDSchemeEnum = GraphQL::EnumType.define do
   name "ItemIDScheme"
-  description "Ordering for item list results"
+  description "The scheme under which the identifier was minted"
   value("ARK", "eSchol (ark:/13030/qt...) or Merritt ARK")
   value("DOI", "A Digital Object Identifier, with or w/o http://dx.doi.org prefix")
   value("LBNL_PUB_ID", "LBNL-internal publication ID")
   value("OA_PUB_ID", "Pub ID on oapolicy.universityofcalifornia.edu")
+  value("OTHER_ID", "All other identifiers")
+end
+
+###################################################################################################
+AuthorIDSchemeEnum = GraphQL::EnumType.define do
+  name "AuthorIDScheme"
+  description "The scheme under which the identifier was minted"
+  value("ARK", "eSchol (ark:/13030/qt...) ARK")
+  value("ORCID", "An Open Researcher and Contributor ID")
   value("OTHER_ID", "All other identifiers")
 end
 
