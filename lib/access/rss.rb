@@ -26,7 +26,8 @@ def serveUnitRSS(unitID)
 
   # Create a little XML chunk for each item
   itemChunks = []
-  data.dig("unit", "items", "nodes").each { |item|
+  items = data.dig("unit", "items", "nodes") or halt(404, "Unit not found.\n")
+  items.each { |item|
     descrip = item['abstract'] && !item['abstract'].strip.empty? ? item['abstract'] : item['title']
     descrip.size > 1000 and descrip = descrip[0..((descrip.index(' ',990) || 1000)-1)] + "..."
     date = DateTime.parse(item['added']).rfc2822
