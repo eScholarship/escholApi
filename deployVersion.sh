@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-DEBUG=1
+DEBUG=
 if [[ -n "$DEBUG" ]]; then
   set -x
 fi
@@ -71,6 +71,23 @@ aws elasticbeanstalk update-environment \
   --region $REGION \
   --version-label "$VERSION" \
   --option-settings file://eboptions.json
+
+# Wait for the deploy to complete.
+echo "Waiting for deploy to finish."
+PREV_DATETIME=""
+while [[ 1 ]]; do
+  STATUS_JSON=`aws elasticbeanstalk describe-events --environment-name "$1" --region $REGION --max-items 1`
+  DATETIME=`echo "$STATUS_JSON" | jq '.Events[0].EventDate' | sed 's/"//g'`
+  MSG=`echo "$STATUS_JSON" | jq '.Events[0].Message' | sed 's/"//g'`
+  if [[ "$PREV_DATETIME" != "$DATETIME" ]]; then
+    PREV_DATETIME="$DATETIME"
+    echo "$DATETIME: $MSG"
+    if [[ "$MSG" =~ "update completed" ]]; then break; fi
+  fi
+  sleep 5
+done
+
+echo "Deployment complete."
 
 # Copyright (c) 2018, Regents of the University of California
 #
