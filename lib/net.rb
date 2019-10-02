@@ -25,9 +25,9 @@ class Net::SSH::Connection::Session
         channel.on_request("exit-status") { |_,data| exit_code = data.read_long }
         channel.on_request("exit-signal") { |_, data| exit_signal = data.read_long }
       end
-      puts "Done executing command."
     end
     self.loop
+    puts "Done executing command. exit_code=#{exit_code}"
     if exit_code != 0
       raise(CommandFailed, "Command \"#{command}\" exited with code #{exit_code}. " +
                            "Full stderr:\n  #{stderr_data}" +
