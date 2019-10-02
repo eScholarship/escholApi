@@ -28,6 +28,7 @@ gem 'socksify'
 # Other
 gem 'erubis'
 gem 'httparty'
+gem 'io-console'   # undocumented prereq of net-ssh
 gem 'net-ssh'
 gem 'nokogiri'
 gem 'unindent'
