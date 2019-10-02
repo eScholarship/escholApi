@@ -229,7 +229,7 @@ def uciFromInput(input)
 end
 
 ###################################################################################################
-def depositItem(input, replaceOnlyFiles)
+def depositItem(input, replace:)
 
   # If no ID provided, mint one now
   fullArk = input[:id] ||
@@ -240,11 +240,12 @@ def depositItem(input, replaceOnlyFiles)
   uci = uciFromInput(input)
 
   # Create the UCI metadata file on the submit server
+  actionVerb = replace == :files ? "Redeposited" : replace == :metadata ? "Updated" : "Deposited"
   Net::SSH.start($submitServer, $submitUser, **$submitSSHOpts) do |ssh|
 
     # Verify that the ARK isn't a dupe for this publication ID (can happen if old incomplete
     # items aren't properly cleaned up).
-    if !replaceOnlyFiles
+    if !replace
       ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb --checkID #{shortArk} " +
                    "#{input['sourceName']} #{input['sourceID']}")
       $provisionalIDs.delete(fullArk)
@@ -252,14 +253,18 @@ def depositItem(input, replaceOnlyFiles)
 
     # Publish the item
     metaText = uci.to_xml(indent:3)
-    ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb " +
-                 "#{replaceOnlyFiles ? "--replaceFiles" : "--depositItem"} " +
+    File.open("/tmp/meta.tmp.xml", "w:UTF-8") { |io|
+      io.write(metaText)
+    }
+    out = ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb " +
+                 "#{replace == :files ? "--replaceFiles" : replace == :metadata ? "--replaceMetadata" : "--depositItem"} " +
                  "#{shortArk} " +
-                 "'#{replaceOnlyFiles ? "Redeposited" : "Deposited"} at oapolicy.universityofcalifornia.edu' " +
+                 "'#{actionVerb} at oapolicy.universityofcalifornia.edu' " +
                  "#{input['submitterEmail'] || "''" } -", metaText)
+    puts "stdout from main subiGuts operation:\n#{out[:stdout]}"
 
     # Claim the provisional ARK if not already done
-    if !replaceOnlyFiles
+    if !replace
       ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb --claimID #{shortArk} " +
                    "#{input['sourceName']} #{input['sourceID']}")
       $provisionalIDs.delete(fullArk)
@@ -268,7 +273,7 @@ def depositItem(input, replaceOnlyFiles)
   end
 
   # All done.
-  return { id: fullArk, message: replaceOnlyFiles ? "Redeposited" : "Deposited" }
+  return { id: fullArk, message: actionVerb + "." }
 end
 
 ###################################################################################################
@@ -406,13 +411,13 @@ end
 ###################################################################################################
 DepositItemInput = GraphQL::InputObjectType.define do
   name "DepositItemInput"
-  description "Information used to create or update item data"
+  description "Information used to create item data"
 
   argument :id, types.ID, "Identifier of the item to update/create; omit to mint a new identifier"
   argument :sourceName, !types.String, "Source of data that will be deposited (eg. 'elements', 'ojs', etc.)"
   argument :sourceID, !types.String, "Identifier or other identifying information of data within the source system"
   argument :sourceFeedLink, types.String, "Original feed data from the source (if any)"
-  argument :submitterEmail, !types.String, "email address of person performing this submission"
+  argument :submitterEmail, !types.String, "Email address of person performing this submission"
   argument :title, !types.String, "Title of the item (may include embedded HTML formatting tags)"
   argument :type, !ItemTypeEnum, "Publication type; majority are ARTICLE"
   argument :published, !types.String, "Date the item was published"
@@ -454,6 +459,54 @@ DepositItemOutput = GraphQL::ObjectType.define do
   field :id, !types.ID, "The (possibly new) item identifier" do
     resolve -> (obj, args, ctx) { return obj[:id] }
   end
+  field :message, !types.String, "Message describing what was done" do
+    resolve -> (obj, args, ctx) { return obj[:message] }
+  end
+end
+
+###################################################################################################
+ReplaceMetadataInput = GraphQL::InputObjectType.define do
+  name "ReplaceMetadataInput"
+  description "Information used to update item metadata"
+
+  argument :id, !types.ID, "Identifier of the item to update/create; omit to mint a new identifier"
+  argument :sourceName, !types.String, "Source of data that will be deposited (eg. 'elements', 'ojs', etc.)"
+  argument :sourceID, !types.String, "Identifier or other identifying information of data within the source system"
+  argument :sourceFeedLink, types.String, "Original feed data from the source (if any)"
+  argument :submitterEmail, !types.String, "email address of person performing this submission"
+  argument :title, !types.String, "Title of the item (may include embedded HTML formatting tags)"
+  argument :type, !ItemTypeEnum, "Publication type; majority are ARTICLE"
+  argument :published, !types.String, "Date the item was published"
+  argument :isPeerReviewed, !types.Boolean, "Whether the work has undergone a peer review process"
+  argument :authors, types[AuthorInput], "All authors"
+  argument :abstract, types.String, "Abstract (may include embedded HTML formatting tags)"
+  argument :journal, types.String, "Journal name"
+  argument :volume, types.String, "Journal volume number"
+  argument :issue, types.String, "Journal issue number"
+  argument :issn, types.String, "Journal ISSN"
+  argument :publisher, types.String, "Publisher of the item (if any)"
+  argument :proceedings, types.String, "Proceedings within which item appears (if any)"
+  argument :isbn, types.String, "Book ISBN"
+  argument :contributors, types[ContributorInput], "Editors, advisors, etc. (if any)"
+  argument :units, !types[types.String], "The series/unit id(s) associated with this item"
+  argument :subjects, types[types.String], "Subject terms (unrestricted) applying to this item"
+  argument :keywords, types[types.String], "Keywords (unrestricted) applying to this item"
+  argument :disciplines, types[types.String], "Disciplines applying to this item"
+  argument :grants, types[GrantInput], "Funding grants linked to this item"
+  argument :language, types.String, "Language specification (ISO 639-2 code)"
+  argument :embargoExpires, DateType, "Embargo expiration date (if any)"
+  argument :rights, types.String, "License (none, or cc-by-nd, etc.)"
+  argument :fpage, types.String, "First page (within a larger work like a journal issue)"
+  argument :lpage, types.String, "Last page (within a larger work like a journal issue)"
+  argument :ucpmsPubType, types.String, "If publication originated from UCPMS, the type within that system"
+  argument :localIDs, types[LocalIDInput], "Local identifiers, e.g. DOI, PubMed ID, LBNL, etc."
+  argument :bookTitle, types.String, "Title of the book within which this item appears"
+  argument :pubRelation, PubRelationEnum, "Publication relationship of this item to eScholarship"
+end
+
+ReplaceMetadataOutput = GraphQL::ObjectType.define do
+  name "ReplaceMetadataOutput"
+  description "Output from the replaceMetadata mutation"
   field :message, !types.String, "Message describing what was done" do
     resolve -> (obj, args, ctx) { return obj[:message] }
   end
@@ -517,7 +570,15 @@ SubmitMutationType = GraphQL::ObjectType.define do
     argument :input, !DepositItemInput
     resolve -> (obj, args, ctx) {
       Thread.current[:privileged] or halt(403)
-      return depositItem(args[:input], false)  # replaceOnlyFiles = false
+      return depositItem(args[:input], replace: nil)
+    }
+  end
+
+  field :replaceMetadata, !ReplaceMetadataOutput, "Replace just the metadata of an existing item" do
+    argument :input, !ReplaceMetadataInput
+    resolve -> (obj, args, ctx) {
+      Thread.current[:privileged] or halt(403)
+      return depositItem(args[:input], replace: :metadata)
     }
   end
 
@@ -525,7 +586,7 @@ SubmitMutationType = GraphQL::ObjectType.define do
     argument :input, !ReplaceFilesInput
     resolve -> (obj, args, ctx) {
       Thread.current[:privileged] or halt(403)
-      return depositItem(args[:input], true)  # replaceOnlyFiles = true
+      return depositItem(args[:input], replace: :files)
     }
   end
 
