@@ -295,7 +295,7 @@ ItemType = GraphQL::ObjectType.define do
 
   field :rights, types.String, "License (none, or cc-by-nd, etc.)" do
     resolve -> (obj, args, ctx) {
-      obj.status != "published" ? obj.status : obj.rights
+      obj.rights
     }
   end
 
