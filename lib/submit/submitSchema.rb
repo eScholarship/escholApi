@@ -143,13 +143,13 @@ end
 ###################################################################################################
 def convertRights(rights)
   case rights
-    when "CC BY";       "cc1"
-    when "CC BY-SA";    "cc2"
-    when "CC BY-ND";    "cc3"
-    when "CC BY-NC";    "cc4"
-    when "CC BY-NC-SA"; "cc5"
-    when "CC BY-NC-ND"; "cc6"
-    when nil;           "public"
+    when "https://creativecommons.org/licenses/by/4.0/";       "cc1"
+    when "https://creativecommons.org/licenses/by-sa/4.0/";    "cc2"
+    when "https://creativecommons.org/licenses/by-nd/4.0/";    "cc3"
+    when "https://creativecommons.org/licenses/by-nc/4.0/";    "cc4"
+    when "https://creativecommons.org/licenses/by-nc-sa/4.0/"; "cc5"
+    when "https://creativecommons.org/licenses/by-nc-nd/4.0/"; "cc6"
+    when nil;                                                  "public"
     else raise("unexpected rights value: #{rights.inspect}")
   end
 end
@@ -442,7 +442,7 @@ DepositItemInput = GraphQL::InputObjectType.define do
   argument :grants, types[GrantInput], "Funding grants linked to this item"
   argument :language, types.String, "Language specification (ISO 639-2 code)"
   argument :embargoExpires, DateType, "Embargo expiration date (if any)"
-  argument :rights, types.String, "License (none, or cc-by-nd, etc.)"
+  argument :rights, types.String, "License (none, or e.g. https://creativecommons.org/licenses/by-nc/4.0/)"
   argument :fpage, types.String, "First page (within a larger work like a journal issue)"
   argument :lpage, types.String, "Last page (within a larger work like a journal issue)"
   argument :suppFiles, types[SuppFileInput], "Supplemental material (if any)"
@@ -495,7 +495,7 @@ ReplaceMetadataInput = GraphQL::InputObjectType.define do
   argument :grants, types[GrantInput], "Funding grants linked to this item"
   argument :language, types.String, "Language specification (ISO 639-2 code)"
   argument :embargoExpires, DateType, "Embargo expiration date (if any)"
-  argument :rights, types.String, "License (none, or cc-by-nd, etc.)"
+  argument :rights, types.String, "License (none, or e.g. https://creativecommons.org/licenses/by-nc/4.0/)"
   argument :fpage, types.String, "First page (within a larger work like a journal issue)"
   argument :lpage, types.String, "Last page (within a larger work like a journal issue)"
   argument :ucpmsPubType, types.String, "If publication originated from UCPMS, the type within that system"

@@ -104,7 +104,10 @@ class EscholRecord
     ((@data['subjects']||[]) + (@data['keywords']||[])).each { |subj| xml.tag!("dc:subject", subj) }
     @data['language'] and xml.tag!("dc:language", @data['language'])
     @data['contentType'] and xml.tag!("dc:format", @data['contentType'])
-    xml.tag!("dc:rights", @data['rights'] || 'public')
+    xml.tag!("dc:rights", @data['rights'] ?
+                          @data['rights'].sub(%r{https://creativecommons.org/licenses/(by[-\w]*)/\d\.\d/}){
+                            "CC-#{Regexp.last_match[1].upcase}" } :
+                          'public')
     xml.tag!("dc:publisher", "eScholarship, University of California")
 
     # Second version of identifier to contain an item link. I (MH) thought this was just for OCLC, but am

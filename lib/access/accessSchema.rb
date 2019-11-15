@@ -293,7 +293,7 @@ ItemType = GraphQL::ObjectType.define do
     }
   end
 
-  field :rights, types.String, "License (none, or cc-by-nd, etc.)" do
+  field :rights, types.String, "License (none, or e.g. https://creativecommons.org/licenses/by-nc/4.0/)" do
     resolve -> (obj, args, ctx) {
       obj.rights
     }
