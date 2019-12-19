@@ -51,7 +51,7 @@ GEM
       faraday_middleware
     promise.rb (0.7.4)
     puma (3.11.3)
-    rack (2.0.6)
+    rack (2.0.8)
     rack-jwt (0.3.0)
       jwt (~> 1.5.2)
       rack (>= 1.6.0)
