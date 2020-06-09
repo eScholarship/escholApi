@@ -336,7 +336,7 @@ class EscholModel < OAI::Provider::Model
     if opts[:set] && opts[:set] != "everything"
       setStr = opts[:set].sub(/^col_/, '')  # handle dspace-style "col_" to front of set names
       if $disciplines.include?(setStr)
-        queryParams[:discTag] = ["String!", "discipline:#{discSet}"]
+        queryParams[:discTag] = ["String!", "discipline:#{setStr}"]
         tags << "$discTag"
       elsif apiQuery("unit(id: $unitID) { name }", { unitID: ["ID!", setStr] }).dig("unit", "name")
         unitSet = setStr
