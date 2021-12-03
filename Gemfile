@@ -6,13 +6,13 @@ gem 'sinatra-contrib', '>= 2.0.2'
 
 # Database Stack
 gem 'sequel'
-gem 'puma'
+gem 'puma','=4.3.3'
 gem 'colorize'
 gem 'rack-protection'
 gem 'mysql2'
 
 # Graphql
-gem 'graphql'
+gem 'graphql','=1.12.16'
 gem 'graphql-batch'
 gem 'json'
 
