@@ -966,9 +966,9 @@ UnitType = GraphQL::ObjectType.define do
   field :children, types[UnitType], "Direct hierarchical children (i.e. sub-units)" do
     resolve -> (obj, args, ctx) {
       query = UnitHier.where(is_direct: true).
-                       exclude(status: 'hidden').
                        order(:ordering).
                        select(:ancestor_unit, :unit_id)
+
       GroupLoader.for(query, :ancestor_unit).load(obj.id).then { |unitHiers|
         unitHiers ? loadFilteredUnits(unitHiers.map { |pu| pu.unit_id }) : nil
       }
