@@ -57,7 +57,7 @@ GEM
       faraday
       faraday_middleware
     promise.rb (0.7.4)
-    puma (4.3.3)
+    puma (4.3.11)
       nio4r (~> 2.0)
     racc (1.6.0)
     rack (2.2.3)
@@ -107,7 +107,7 @@ DEPENDENCIES
   net-ssh
   nokogiri
   oai
-  puma (= 4.3.3)
+  puma (= 4.3.11)
   rack-jwt
   rack-protection
   rerun (>= 0.13.0)
