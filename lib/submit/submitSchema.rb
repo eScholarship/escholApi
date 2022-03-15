@@ -82,6 +82,7 @@ def assignSeries(xml, units)
   units.empty? and raise("at least one unit must be specified")
   units.each { |id|
     data = apiQuery("unit(id: $unitID) { name type }", { unitID: ["ID!", id] }).dig("unit")
+    # TODO: report error if unit not found
     xml.entity(id: id, entityLabel: data['name'], entityType: data['type'].downcase)
   }
 end
@@ -158,12 +159,11 @@ end
 # Take a DepositItemInput and make a UCI record out of it. Note that if you pass existing UCI
 # data in, it will be retained if Elements doesn't override it.
 # NOTE: UCI in this context means "UC Ingest" format, the internal metadata format for eScholarship.
-def uciFromInput(input)
+def uciFromInput(input, ark)
 
   uci = Nokogiri::XML("<uci:record xmlns:uci='http://www.cdlib.org/ucingest'/>").root
 
   # Top-level attributes
-  ark = input[:id]
   uci[:id] = ark.sub(%r{ark:/?13030/}, '')
   uci[:dateStamp] = DateTime.now.iso8601
   uci[:peerReview] = input['isPeerReviewed'] ? "yes" : "no"
@@ -204,6 +204,12 @@ def uciFromInput(input)
       input[:proceedings] and xml.proceedings(input[:proceedings])
       input[:volume] and xml.volume(input[:volume])
       input[:issue] and  xml.issue(input[:issue])
+      input[:issueTitle] and xml.issueTitle(input[:issueTitle])
+      input[:issueDate] and xml.issueDate(input[:issueDate])
+      input[:issueDescription] and xml.issueDescription(input[:issueDescription])
+      input[:issueCoverCaption] and xml.issueCoverCaption(input[:issueCoverCaption])
+      input[:sectionHeader] and xml.sectionHeader(input[:sectionHeader])
+      input[:orderInSection] and xml.publicationOrder(input[:orderInSection])
       input[:bookTitle] and xml.bookTitle(input[:bookTitle])  # for chapters
       input[:externalLinks] and convertExtLinks(xml, input[:externalLinks])
       input[:ucpmsPubType] and xml.ucpmsPubType(input[:ucpmsPubType])
@@ -237,7 +243,7 @@ def depositItem(input, replace:)
   shortArk = fullArk[/qt\w{8}/]
 
   # Convert the metadata
-  uci = uciFromInput(input)
+  uci = uciFromInput(input, fullArk)
 
   # Create the UCI metadata file on the submit server
   actionVerb = replace == :files ? "Redeposited" : replace == :metadata ? "Updated" : "Deposited"
@@ -256,6 +262,7 @@ def depositItem(input, replace:)
     File.open("/tmp/meta.tmp.xml", "w:UTF-8") { |io|
       io.write(metaText)
     }
+
     out = ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb " +
                  "#{replace == :files ? "--replaceFiles" : replace == :metadata ? "--replaceMetadata" : "--depositItem"} " +
                  "#{shortArk} " +
@@ -269,7 +276,6 @@ def depositItem(input, replace:)
                    "#{input['sourceName']} #{input['sourceID']}")
       $provisionalIDs.delete(fullArk)
     end
-
   end
 
   # All done.
@@ -430,6 +436,12 @@ DepositItemInput = GraphQL::InputObjectType.define do
   argument :journal, types.String, "Journal name"
   argument :volume, types.String, "Journal volume number"
   argument :issue, types.String, "Journal issue number"
+  argument :issueTitle, types.String, "Title of the issue"
+  argument :issueDate, types.String, "Date of the issue"
+  argument :issueDescription, types.String, "Description of the issue"
+  argument :issueCoverCaption, types.String, "Caption for the issue cover image"
+  argument :sectionHeader, types.String, "Section header"
+  argument :orderInSection, types.Int, "Order of article in section"
   argument :issn, types.String, "Journal ISSN"
   argument :publisher, types.String, "Publisher of the item (if any)"
   argument :proceedings, types.String, "Proceedings within which item appears (if any)"
@@ -483,6 +495,12 @@ ReplaceMetadataInput = GraphQL::InputObjectType.define do
   argument :journal, types.String, "Journal name"
   argument :volume, types.String, "Journal volume number"
   argument :issue, types.String, "Journal issue number"
+  argument :issueTitle, types.String, "Title of the issue"
+  argument :issueDate, types.String, "Date of the issue"
+  argument :issueDescription, types.String, "Description of the issue"
+  argument :issueCoverCaption, types.String, "Caption for the issue cover image"
+  argument :sectionHeader, types.String, "Section header"
+  argument :orderInSection, types.Int, "Order of article in section"
   argument :issn, types.String, "Journal ISSN"
   argument :publisher, types.String, "Publisher of the item (if any)"
   argument :proceedings, types.String, "Proceedings within which item appears (if any)"
