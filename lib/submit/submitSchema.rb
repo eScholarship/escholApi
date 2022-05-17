@@ -332,6 +332,26 @@ def withdrawItem(input)
 end
 
 ###################################################################################################
+def updateIssue(input)
+  # identification information
+  journal = input[:journal]
+  issue = input[:issue]
+  volume = input[:volume]
+
+  coverImageURL = input[:coverImageURL]
+
+  # put the cover image up there
+  Net::SSH.start($submitServer, $submitUser, **$submitSSHOpts) do |ssh|
+    cmd = "/apps/eschol/subi/lib/subiGuts.rb --uploadIssueCoverImage #{journal} #{issue} #{volume} #{coverImageURL}"
+    out = ssh.exec_sc!(cmd)
+    puts "stdout from uploadIssueCoverImage:\n#{out[:stdout]}"
+  end
+
+  # All done.
+  return { message: "Cover Image uploaded" }
+end
+
+###################################################################################################
 MintProvisionalIDInput = GraphQL::InputObjectType.define do
   name "MintProvisionalIDInput"
   description "Input for mintProvisionalID"
@@ -590,6 +610,26 @@ WithdrawItemOutput = GraphQL::ObjectType.define do
 end
 
 ###################################################################################################
+UpdateIssueInput = GraphQL::InputObjectType.define do
+  name "UpdateIssueInput"
+  description "input to the update issue mutation"
+
+  argument :journal, !types.String, "Journal id"
+  argument :issue, !types.Int, "Issue number"
+  argument :volume, !types.Int, "Volume number"
+  argument :coverImageURL, !types.String, "Publically available link to the cover image"
+  #argument :numbering, !types.Int, "0 = issue, volue, 1 = issue only, 2 = volume only"
+end
+
+UpdateIssueOutput = GraphQL::ObjectType.define do
+  name "UpdateIssueOutput"
+  description "Output from the updateIssue mutation"
+  field :message, !types.String, "Message describing the outcome" do
+    resolve -> (obj, args, ctx) { return obj[:message] }
+  end
+end
+
+###################################################################################################
 SubmitMutationType = GraphQL::ObjectType.define do
   name "SubmitMutation"
   description "The eScholarship submission API"
@@ -632,6 +672,14 @@ SubmitMutationType = GraphQL::ObjectType.define do
     resolve -> (obj, args, ctx) {
       Thread.current[:privileged] or halt(403)
       return withdrawItem(args[:input])
+    }
+  end
+
+  field :updateIssue, !UpdateIssueOutput, "Update issue properties" do
+    argument :input, !UpdateIssueInput
+    resolve -> (obj, args, ctx) {
+      Thread.current[:privileged] or halt(403)
+      return updateIssue(args[:input])
     }
   end
 end
