@@ -173,6 +173,9 @@ def uciFromInput(input, ark)
   input[:pubRelation] and uci[:pubStatus] = convertPubRelation(input[:pubRelation])
   input[:contentVersion] and uci[:externalPubVersion] = convertFileVersion(input[:contentVersion])
   input[:embargoExpires] and uci[:embargoDate] = input[:embargoExpires]
+  input[:dateSubmitted] and uci[:dateSubmitted] = input[:dateSubmitted]
+  input[:dateAccepted] and uci[:dateAccepted] = input[:dateAccepted]
+  input[:datePublished] and uci[:datePublished] = input[:datePublished]
 
   # Special pseudo-field to record feed metadata link
   input[:sourceFeedLink] and uci.find!('feedLink').content = input[:sourceFeedLink]
@@ -248,7 +251,6 @@ def depositItem(input, replace:)
   # Create the UCI metadata file on the submit server
   actionVerb = replace == :files ? "Redeposited" : replace == :metadata ? "Updated" : "Deposited"
   Net::SSH.start($submitServer, $submitUser, **$submitSSHOpts) do |ssh|
-
     # Verify that the ARK isn't a dupe for this publication ID (can happen if old incomplete
     # items aren't properly cleaned up).
     if !replace
@@ -501,6 +503,9 @@ DepositItemInput = GraphQL::InputObjectType.define do
   argument :externalLinks, types[types.String], "Published web location(s) external to eScholarshp"
   argument :bookTitle, types.String, "Title of the book within which this item appears"
   argument :pubRelation, PubRelationEnum, "Publication relationship of this item to eScholarship"
+  argument :dateSubmitted, types.String, "Date the article was submitted"
+  argument :dateAccepted, types.String, "Date the article was accepted"
+  argument :datePublished, types.String, "Date the article was published"
 end
 
 DepositItemOutput = GraphQL::ObjectType.define do
@@ -558,6 +563,9 @@ ReplaceMetadataInput = GraphQL::InputObjectType.define do
   argument :localIDs, types[LocalIDInput], "Local identifiers, e.g. DOI, PubMed ID, LBNL, etc."
   argument :bookTitle, types.String, "Title of the book within which this item appears"
   argument :pubRelation, PubRelationEnum, "Publication relationship of this item to eScholarship"
+  argument :dateSubmitted, types.String, "Date the article was submitted"
+  argument :dateAccepted, types.String, "Date the article was accepted"
+  argument :datePublished, types.String, "Date the article was published"
 end
 
 ReplaceMetadataOutput = GraphQL::ObjectType.define do
