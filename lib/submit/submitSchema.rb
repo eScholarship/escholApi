@@ -81,8 +81,7 @@ end
 def assignSeries(xml, units)
   units.empty? and raise("at least one unit must be specified")
   units.each { |id|
-    data = apiQuery("unit(id: $unitID) { name type }", { unitID: ["ID!", id] }).dig("unit")
-    # TODO: report error if unit not found
+    data = apiQuery("unit(id: $unitID) { name type }", { unitID: ["ID!", id] }).dig("unit") || raise("Unit not found: #{id}")
     xml.entity(id: id, entityLabel: data['name'], entityType: data['type'].downcase)
   }
 end
