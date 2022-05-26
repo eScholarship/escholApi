@@ -81,7 +81,7 @@ end
 def assignSeries(xml, units)
   units.empty? and raise("at least one unit must be specified")
   units.each { |id|
-    data = apiQuery("unit(id: $unitID) { name type }", { unitID: ["ID!", id] }).dig("unit")
+    data = apiQuery("unit(id: $unitID) { name type }", { unitID: ["ID!", id] }).dig("unit") || raise("Unit not found: #{id}")
     xml.entity(id: id, entityLabel: data['name'], entityType: data['type'].downcase)
   }
 end
@@ -158,12 +158,11 @@ end
 # Take a DepositItemInput and make a UCI record out of it. Note that if you pass existing UCI
 # data in, it will be retained if Elements doesn't override it.
 # NOTE: UCI in this context means "UC Ingest" format, the internal metadata format for eScholarship.
-def uciFromInput(input)
+def uciFromInput(input, ark)
 
   uci = Nokogiri::XML("<uci:record xmlns:uci='http://www.cdlib.org/ucingest'/>").root
 
   # Top-level attributes
-  ark = input[:id]
   uci[:id] = ark.sub(%r{ark:/?13030/}, '')
   uci[:dateStamp] = DateTime.now.iso8601
   uci[:peerReview] = input['isPeerReviewed'] ? "yes" : "no"
@@ -173,6 +172,9 @@ def uciFromInput(input)
   input[:pubRelation] and uci[:pubStatus] = convertPubRelation(input[:pubRelation])
   input[:contentVersion] and uci[:externalPubVersion] = convertFileVersion(input[:contentVersion])
   input[:embargoExpires] and uci[:embargoDate] = input[:embargoExpires]
+  input[:dateSubmitted] and uci[:dateSubmitted] = input[:dateSubmitted]
+  input[:dateAccepted] and uci[:dateAccepted] = input[:dateAccepted]
+  input[:datePublished] and uci[:datePublished] = input[:datePublished]
 
   # Special pseudo-field to record feed metadata link
   input[:sourceFeedLink] and uci.find!('feedLink').content = input[:sourceFeedLink]
@@ -204,6 +206,12 @@ def uciFromInput(input)
       input[:proceedings] and xml.proceedings(input[:proceedings])
       input[:volume] and xml.volume(input[:volume])
       input[:issue] and  xml.issue(input[:issue])
+      input[:issueTitle] and xml.issueTitle(input[:issueTitle])
+      input[:issueDate] and xml.issueDate(input[:issueDate])
+      input[:issueDescription] and xml.issueDescription(input[:issueDescription])
+      input[:issueCoverCaption] and xml.issueCoverCaption(input[:issueCoverCaption])
+      input[:sectionHeader] and xml.sectionHeader(input[:sectionHeader])
+      input[:orderInSection] and xml.publicationOrder(input[:orderInSection])
       input[:bookTitle] and xml.bookTitle(input[:bookTitle])  # for chapters
       input[:externalLinks] and convertExtLinks(xml, input[:externalLinks])
       input[:ucpmsPubType] and xml.ucpmsPubType(input[:ucpmsPubType])
@@ -237,12 +245,11 @@ def depositItem(input, replace:)
   shortArk = fullArk[/qt\w{8}/]
 
   # Convert the metadata
-  uci = uciFromInput(input)
+  uci = uciFromInput(input, fullArk)
 
   # Create the UCI metadata file on the submit server
   actionVerb = replace == :files ? "Redeposited" : replace == :metadata ? "Updated" : "Deposited"
   Net::SSH.start($submitServer, $submitUser, **$submitSSHOpts) do |ssh|
-
     # Verify that the ARK isn't a dupe for this publication ID (can happen if old incomplete
     # items aren't properly cleaned up).
     if !replace
@@ -256,6 +263,7 @@ def depositItem(input, replace:)
     File.open("/tmp/meta.tmp.xml", "w:UTF-8") { |io|
       io.write(metaText)
     }
+
     out = ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb " +
                  "#{replace == :files ? "--replaceFiles" : replace == :metadata ? "--replaceMetadata" : "--depositItem"} " +
                  "#{shortArk} " +
@@ -263,13 +271,28 @@ def depositItem(input, replace:)
                  "#{input['submitterEmail'] || "''" } -", metaText)
     puts "stdout from main subiGuts operation:\n#{out[:stdout]}"
 
+    if input.key?(:imgFiles)
+      imgs = JSON.generate(input[:imgFiles].map{ |i|
+          {"file": i[:file], "fetchLink": i[:fetchLink]}
+        })
+      out = ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb --uploadImages #{shortArk} #{imgs}")
+      puts "stdout from uploadImages:\n#{out[:stdout]}"
+    end
+
+    if input.key?(:cssFiles)
+      css = JSON.generate(input[:cssFiles].map{ |i|
+          {"file": i[:file], "fetchLink": i[:fetchLink]}
+        })
+      out = ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb --uploadImages #{shortArk} #{css}")
+      puts "stdout from uploadImages:\n#{out[:stdout]}"
+    end
+
     # Claim the provisional ARK if not already done
     if !replace
       ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb --claimID #{shortArk} " +
                    "#{input['sourceName']} #{input['sourceID']}")
       $provisionalIDs.delete(fullArk)
     end
-
   end
 
   # All done.
@@ -315,6 +338,26 @@ def withdrawItem(input)
 
   # All done.
   return { message: "Withdrawn" }
+end
+
+###################################################################################################
+def updateIssue(input)
+  # identification information
+  journal = input[:journal]
+  issue = input[:issue]
+  volume = input[:volume]
+
+  coverImageURL = input[:coverImageURL]
+
+  # put the cover image up there
+  Net::SSH.start($submitServer, $submitUser, **$submitSSHOpts) do |ssh|
+    cmd = "/apps/eschol/subi/lib/subiGuts.rb --uploadIssueCoverImage #{journal} #{issue} #{volume} #{coverImageURL}"
+    out = ssh.exec_sc!(cmd)
+    puts "stdout from uploadIssueCoverImage:\n#{out[:stdout]}"
+  end
+
+  # All done.
+  return { message: "Cover Image uploaded" }
 end
 
 ###################################################################################################
@@ -390,6 +433,15 @@ SuppFileInput = GraphQL::InputObjectType.define do
 end
 
 ###################################################################################################
+HTMLSuppFileInput = GraphQL::InputObjectType.define do
+  name "HTMLSuppFileInput"
+  description "An image file that is required to display an HTML content file"
+
+  argument :file, !types.String, "Name of the file"
+  argument :fetchLink, !types.String, "URL from which to fetch the file"
+end
+
+###################################################################################################
 LocalIDInput = GraphQL::InputObjectType.define do
   name "LocalIDInput"
   description "Local item identifier, e.g. DOI, PubMed ID, LBNL ID, etc."
@@ -430,6 +482,12 @@ DepositItemInput = GraphQL::InputObjectType.define do
   argument :journal, types.String, "Journal name"
   argument :volume, types.String, "Journal volume number"
   argument :issue, types.String, "Journal issue number"
+  argument :issueTitle, types.String, "Title of the issue"
+  argument :issueDate, types.String, "Date of the issue"
+  argument :issueDescription, types.String, "Description of the issue"
+  argument :issueCoverCaption, types.String, "Caption for the issue cover image"
+  argument :sectionHeader, types.String, "Section header"
+  argument :orderInSection, types.Int, "Order of article in section"
   argument :issn, types.String, "Journal ISSN"
   argument :publisher, types.String, "Publisher of the item (if any)"
   argument :proceedings, types.String, "Proceedings within which item appears (if any)"
@@ -446,11 +504,16 @@ DepositItemInput = GraphQL::InputObjectType.define do
   argument :fpage, types.String, "First page (within a larger work like a journal issue)"
   argument :lpage, types.String, "Last page (within a larger work like a journal issue)"
   argument :suppFiles, types[SuppFileInput], "Supplemental material (if any)"
+  argument :imgFiles, types[HTMLSuppFileInput], "Image files required for HTML display"
+  argument :cssFiles, types[HTMLSuppFileInput], "CSS files required for HTML display"
   argument :ucpmsPubType, types.String, "If publication originated from UCPMS, the type within that system"
   argument :localIDs, types[LocalIDInput], "Local identifiers, e.g. DOI, PubMed ID, LBNL, etc."
   argument :externalLinks, types[types.String], "Published web location(s) external to eScholarshp"
   argument :bookTitle, types.String, "Title of the book within which this item appears"
   argument :pubRelation, PubRelationEnum, "Publication relationship of this item to eScholarship"
+  argument :dateSubmitted, types.String, "Date the article was submitted"
+  argument :dateAccepted, types.String, "Date the article was accepted"
+  argument :datePublished, types.String, "Date the article was published"
 end
 
 DepositItemOutput = GraphQL::ObjectType.define do
@@ -483,6 +546,12 @@ ReplaceMetadataInput = GraphQL::InputObjectType.define do
   argument :journal, types.String, "Journal name"
   argument :volume, types.String, "Journal volume number"
   argument :issue, types.String, "Journal issue number"
+  argument :issueTitle, types.String, "Title of the issue"
+  argument :issueDate, types.String, "Date of the issue"
+  argument :issueDescription, types.String, "Description of the issue"
+  argument :issueCoverCaption, types.String, "Caption for the issue cover image"
+  argument :sectionHeader, types.String, "Section header"
+  argument :orderInSection, types.Int, "Order of article in section"
   argument :issn, types.String, "Journal ISSN"
   argument :publisher, types.String, "Publisher of the item (if any)"
   argument :proceedings, types.String, "Proceedings within which item appears (if any)"
@@ -502,6 +571,9 @@ ReplaceMetadataInput = GraphQL::InputObjectType.define do
   argument :localIDs, types[LocalIDInput], "Local identifiers, e.g. DOI, PubMed ID, LBNL, etc."
   argument :bookTitle, types.String, "Title of the book within which this item appears"
   argument :pubRelation, PubRelationEnum, "Publication relationship of this item to eScholarship"
+  argument :dateSubmitted, types.String, "Date the article was submitted"
+  argument :dateAccepted, types.String, "Date the article was accepted"
+  argument :datePublished, types.String, "Date the article was published"
 end
 
 ReplaceMetadataOutput = GraphQL::ObjectType.define do
@@ -522,6 +594,8 @@ ReplaceFilesInput = GraphQL::InputObjectType.define do
   argument :contentVersion, FileVersionEnum, "Version of the content file (e.g. AUTHOR_VERSION)"
   argument :contentFileName, types.String, "Original name of the content file"
   argument :suppFiles, types[SuppFileInput], "Supplemental material (if any)"
+  argument :imgFiles, types[HTMLSuppFileInput], "Image files required for HTML display"
+  argument :cssFiles, types[HTMLSuppFileInput], "CSS files required for HTML display"
   argument :externalLinks, types[types.String], "Published web location(s) external to eScholarshp"
 end
 
@@ -547,6 +621,26 @@ end
 WithdrawItemOutput = GraphQL::ObjectType.define do
   name "WithdrawItemOutput"
   description "Output from the withdrawItem mutation"
+  field :message, !types.String, "Message describing the outcome" do
+    resolve -> (obj, args, ctx) { return obj[:message] }
+  end
+end
+
+###################################################################################################
+UpdateIssueInput = GraphQL::InputObjectType.define do
+  name "UpdateIssueInput"
+  description "input to the update issue mutation"
+
+  argument :journal, !types.String, "Journal id"
+  argument :issue, !types.Int, "Issue number"
+  argument :volume, !types.Int, "Volume number"
+  argument :coverImageURL, !types.String, "Publically available link to the cover image"
+  #argument :numbering, !types.Int, "0 = issue, volue, 1 = issue only, 2 = volume only"
+end
+
+UpdateIssueOutput = GraphQL::ObjectType.define do
+  name "UpdateIssueOutput"
+  description "Output from the updateIssue mutation"
   field :message, !types.String, "Message describing the outcome" do
     resolve -> (obj, args, ctx) { return obj[:message] }
   end
@@ -595,6 +689,14 @@ SubmitMutationType = GraphQL::ObjectType.define do
     resolve -> (obj, args, ctx) {
       Thread.current[:privileged] or halt(403)
       return withdrawItem(args[:input])
+    }
+  end
+
+  field :updateIssue, !UpdateIssueOutput, "Update issue properties" do
+    argument :input, !UpdateIssueInput
+    resolve -> (obj, args, ctx) {
+      Thread.current[:privileged] or halt(403)
+      return updateIssue(args[:input])
     }
   end
 end
