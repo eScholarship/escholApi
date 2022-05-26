@@ -280,6 +280,14 @@ def depositItem(input, replace:)
       puts "stdout from uploadImages:\n#{out[:stdout]}"
     end
 
+    if input.key?(:cssFiles)
+      css = JSON.generate(input[:cssFiles].map{ |i|
+          {"file": i[:file], "fetchLink": i[:fetchLink]}
+        })
+      out = ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb --uploadImages #{shortArk} #{css}")
+      puts "stdout from uploadImages:\n#{out[:stdout]}"
+    end
+
     # Claim the provisional ARK if not already done
     if !replace
       ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb --claimID #{shortArk} " +
@@ -426,8 +434,8 @@ SuppFileInput = GraphQL::InputObjectType.define do
 end
 
 ###################################################################################################
-ImgFileInput = GraphQL::InputObjectType.define do
-  name "ImgFileInput"
+HTMLSuppFileInput = GraphQL::InputObjectType.define do
+  name "HTMLSuppFileInput"
   description "An image file that is required to display an HTML content file"
 
   argument :file, !types.String, "Name of the file"
@@ -497,7 +505,8 @@ DepositItemInput = GraphQL::InputObjectType.define do
   argument :fpage, types.String, "First page (within a larger work like a journal issue)"
   argument :lpage, types.String, "Last page (within a larger work like a journal issue)"
   argument :suppFiles, types[SuppFileInput], "Supplemental material (if any)"
-  argument :imgFiles, types[ImgFileInput], "Image files required for HTML display"
+  argument :imgFiles, types[HTMLSuppFileInput], "Image files required for HTML display"
+  argument :cssFiles, types[HTMLSuppFileInput], "CSS files required for HTML display"
   argument :ucpmsPubType, types.String, "If publication originated from UCPMS, the type within that system"
   argument :localIDs, types[LocalIDInput], "Local identifiers, e.g. DOI, PubMed ID, LBNL, etc."
   argument :externalLinks, types[types.String], "Published web location(s) external to eScholarshp"
@@ -586,7 +595,8 @@ ReplaceFilesInput = GraphQL::InputObjectType.define do
   argument :contentVersion, FileVersionEnum, "Version of the content file (e.g. AUTHOR_VERSION)"
   argument :contentFileName, types.String, "Original name of the content file"
   argument :suppFiles, types[SuppFileInput], "Supplemental material (if any)"
-  argument :imgFiles, types[ImgFileInput], "Image files required for HTML display"
+  argument :imgFiles, types[HTMLSuppFileInput], "Image files required for HTML display"
+  argument :cssFiles, types[HTMLSuppFileInput], "CSS files required for HTML display"
   argument :externalLinks, types[types.String], "Published web location(s) external to eScholarshp"
 end
 
