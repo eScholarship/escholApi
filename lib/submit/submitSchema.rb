@@ -172,9 +172,6 @@ def uciFromInput(input, ark)
   input[:pubRelation] and uci[:pubStatus] = convertPubRelation(input[:pubRelation])
   input[:contentVersion] and uci[:externalPubVersion] = convertFileVersion(input[:contentVersion])
   input[:embargoExpires] and uci[:embargoDate] = input[:embargoExpires]
-  input[:dateSubmitted] and uci[:dateSubmitted] = input[:dateSubmitted]
-  input[:dateAccepted] and uci[:dateAccepted] = input[:dateAccepted]
-  input[:datePublished] and uci[:datePublished] = input[:datePublished]
 
   # Special pseudo-field to record feed metadata link
   input[:sourceFeedLink] and uci.find!('feedLink').content = input[:sourceFeedLink]
@@ -215,6 +212,9 @@ def uciFromInput(input, ark)
       input[:bookTitle] and xml.bookTitle(input[:bookTitle])  # for chapters
       input[:externalLinks] and convertExtLinks(xml, input[:externalLinks])
       input[:ucpmsPubType] and xml.ucpmsPubType(input[:ucpmsPubType])
+      input[:dateSubmitted] and xml.dateSubmitted(input[:dateSubmitted])
+      input[:dateAccepted] and xml.dateAccepted(input[:dateAccepted])
+      input[:datePublished] and xml.datePublished(input[:datePublished])
   }
 
   # Content and supp files
@@ -275,7 +275,7 @@ def depositItem(input, replace:)
       imgs = JSON.generate(input[:imgFiles].map{ |i|
           {"file": i[:file], "fetchLink": i[:fetchLink]}
         })
-      out = ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb --uploadImages #{shortArk} #{imgs}")
+      out = ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb --uploadImages #{shortArk} '#{imgs}'")
       puts "stdout from uploadImages:\n#{out[:stdout]}"
     end
 
@@ -283,7 +283,7 @@ def depositItem(input, replace:)
       css = JSON.generate(input[:cssFiles].map{ |i|
           {"file": i[:file], "fetchLink": i[:fetchLink]}
         })
-      out = ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb --uploadImages #{shortArk} #{css}")
+      out = ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb --uploadImages #{shortArk} '#{css}'")
       puts "stdout from uploadImages:\n#{out[:stdout]}"
     end
 
