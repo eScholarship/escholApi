@@ -125,6 +125,7 @@ def addSuppFiles(xml, input)
         xml.originalName supp[:file]
         xml.mimeType supp[:contentType]
         xml.fileSize supp[:size]
+        xml.title supp[:title]
       }
     }
   }
@@ -191,6 +192,7 @@ def uciFromInput(input, ark)
   input[:keywords] and convertKeywords(uci, input[:keywords])
   uci.find!('rights').content = convertRights(input[:rights])
   input[:grants] and convertFunding(uci, input[:grants])
+  uci.find!('customCitation').content = input[:customCitation]
 
   # Things that go inside <context>
   contextEl = uci.find! 'context'
@@ -430,6 +432,7 @@ SuppFileInput = GraphQL::InputObjectType.define do
   argument :contentType, types.String, "Content MIME type of file, if known"
   argument :size, !types.Int, "Size of the file in bytes"
   argument :fetchLink, !types.String, "URL from which to fetch the file"
+  argument :title, types.String, "Display title for file"
 end
 
 ###################################################################################################
@@ -492,6 +495,7 @@ DepositItemInput = GraphQL::InputObjectType.define do
   argument :publisher, types.String, "Publisher of the item (if any)"
   argument :proceedings, types.String, "Proceedings within which item appears (if any)"
   argument :isbn, types.String, "Book ISBN"
+  argument :customCitation, types.String, "Custom citation"
   argument :contributors, types[ContributorInput], "Editors, advisors, etc. (if any)"
   argument :units, !types[types.String], "The series/unit id(s) associated with this item"
   argument :subjects, types[types.String], "Subject terms (unrestricted) applying to this item"
@@ -556,6 +560,7 @@ ReplaceMetadataInput = GraphQL::InputObjectType.define do
   argument :publisher, types.String, "Publisher of the item (if any)"
   argument :proceedings, types.String, "Proceedings within which item appears (if any)"
   argument :isbn, types.String, "Book ISBN"
+  argument :customCitation, types.String, "Custom citation"
   argument :contributors, types[ContributorInput], "Editors, advisors, etc. (if any)"
   argument :units, !types[types.String], "The series/unit id(s) associated with this item"
   argument :subjects, types[types.String], "Subject terms (unrestricted) applying to this item"
