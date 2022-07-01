@@ -110,6 +110,18 @@ def convertExtLinks(xml, links)
     xml.publishedWebLocation(url)
   }
 end
+###################################################################################################
+def validateDataStatement(input)
+  d = input[:dataAvailability]
+  if d
+    if not ["publicRepo", "publicRepoLater", "suppFiles", "withinManuscript", "onRequest", "thirdParty", "notAvail"].include? d
+      raise("Invalid data statement type #{d}")
+    end
+    if d == "publicRepo" and not input[:dataURL]
+      raise("missing data URL for data availability type publicRepo")
+    end
+  end
+end
 
 ###################################################################################################
 def addContent(xml, input)
@@ -119,8 +131,13 @@ end
 
 ###################################################################################################
 def addSuppFiles(xml, input)
+  suppFiles = input[:suppFiles] ? input[:suppFiles] : []
+  validateDataStatement(input)
   xml.supplemental {
-    input[:suppFiles].each { |supp|
+    input[:dataAvailability] and xml.dataStatement(type:input[:dataAvailability]){
+      input[:dataURL] and xml.text input[:dataURL]
+    }
+    suppFiles.each { |supp|
       xml.file(url:supp[:fetchLink]) {
         xml.originalName supp[:file]
         xml.mimeType supp[:contentType]
@@ -223,7 +240,7 @@ def uciFromInput(input, ark)
   if input[:contentLink] || input[:suppFiles]
     uci.find!('content').build { |xml|
       input[:contentLink] and addContent(xml, input)
-      input[:suppFiles] and addSuppFiles(xml, input)
+      (input[:suppFiles] or input[:dataAvailability]) and addSuppFiles(xml, input)
     }
   end
 
@@ -518,6 +535,8 @@ DepositItemInput = GraphQL::InputObjectType.define do
   argument :dateSubmitted, types.String, "Date the article was submitted"
   argument :dateAccepted, types.String, "Date the article was accepted"
   argument :datePublished, types.String, "Date the article was published"
+  argument :dataAvailability, types.String, "Data availability statement"
+  argument :dataURL, types.String, "URL to data available in a public repository"
 end
 
 DepositItemOutput = GraphQL::ObjectType.define do
@@ -579,6 +598,8 @@ ReplaceMetadataInput = GraphQL::InputObjectType.define do
   argument :dateSubmitted, types.String, "Date the article was submitted"
   argument :dateAccepted, types.String, "Date the article was accepted"
   argument :datePublished, types.String, "Date the article was published"
+  argument :dataAvailability, types.String, "Data availability statement"
+  argument :dataURL, types.String, "URL to data available in a public repository"
 end
 
 ReplaceMetadataOutput = GraphQL::ObjectType.define do
