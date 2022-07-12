@@ -8,8 +8,7 @@ require 'bundler/setup'
 
 require 'httparty'
 
-# Go to the right URLs for the front-end+api and submission systems
-$submitServer = ENV['SUBMIT_SERVER']
+# API URL should be set in an environment variable
 $api_url = ENV['ESCHOL_API_URL']
 
 #################################################################################################
