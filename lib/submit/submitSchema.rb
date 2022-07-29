@@ -38,7 +38,7 @@ def transformPeople(uci, authOrEd, people)
       xml.send(authOrEd) {
         if np = person[:nameParts]
           np[:fname] and xml.fname(np[:fname])
-          np[:mname] and xml.lname(np[:mname])
+          np[:mname] and xml.mname(np[:mname])
           np[:lname] and xml.lname(np[:lname])
           np[:suffix] and xml.suffix(np[:suffix])
           np[:institution] and xml.institution(np[:institution])
