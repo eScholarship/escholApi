@@ -119,13 +119,6 @@ ItemType = GraphQL::ObjectType.define do
     }
   end
 
-  # TODO: Test this
-  field :contentVersion, FileVersionEnum, "Version of a content file, e.g. AUTHOR_VERSION" do
-    resolve -> (obj, args, ctx) {
-      !!((obj.attrs ? JSON.parse(obj.attrs) : {})['content_version'])
-    }
-  end
-
   field :authors, AuthorsType, "All authors (can be long)" do
     argument :first, types.Int, default_value: 100, prepare: ->(val, ctx) {
       (val.nil? || (val >= 1 && val <= 500)) or return GraphQL::ExecutionError.new("'first' must be in range 1..500")
