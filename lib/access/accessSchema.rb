@@ -58,6 +58,10 @@ def loadFilteredUnits(unitIDs, emptyRet = nil)
   }
 end
 
+def is_withdrawn(obj)
+  obj.status == "withdrawn" or obj.status == "withdrawn-junk"
+end
+
 ###################################################################################################
 ItemType = GraphQL::ObjectType.define do
   name "Item"
@@ -115,13 +119,6 @@ ItemType = GraphQL::ObjectType.define do
     }
   end
 
-  # TODO: Test this
-  field :contentVersion, FileVersionEnum, "Version of a content file, e.g. AUTHOR_VERSION" do
-    resolve -> (obj, args, ctx) {
-      !!((obj.attrs ? JSON.parse(obj.attrs) : {})['content_version'])
-    }
-  end
-
   field :authors, AuthorsType, "All authors (can be long)" do
     argument :first, types.Int, default_value: 100, prepare: ->(val, ctx) {
       (val.nil? || (val >= 1 && val <= 500)) or return GraphQL::ExecutionError.new("'first' must be in range 1..500")
@@ -138,7 +135,8 @@ ItemType = GraphQL::ObjectType.define do
 
   field :abstract, types.String, "Abstract (may include embedded HTML formatting tags)" do
     resolve -> (obj, args, ctx) {
-      (obj.attrs ? JSON.parse(obj.attrs) : {})['abstract']
+      field_name = is_withdrawn(obj) ? 'withdrawn_message' : 'abstract'
+      (obj.attrs ? JSON.parse(obj.attrs) : {})[field_name]
     }
   end
 
@@ -245,14 +243,18 @@ ItemType = GraphQL::ObjectType.define do
 
   field :tags, types[types.String], "Unified disciplines, keywords, grants, etc." do
     resolve -> (obj, args, ctx) {
-      attrs = obj.attrs ? JSON.parse(obj.attrs) : {}
-      out = (attrs['disciplines'] || []).map{|s| "discipline:#{s}"} +
-            (attrs['keywords'] || []).map{|s| "keyword:#{s}"} +
-            (attrs['subjects'] || []).map{|s| "subject:#{s}"} +
-            (attrs['grants'] || []).map{|s| "grant:#{s['name']}"} +
-            ["source:#{obj.source}"] +
-            ["type:#{obj.genre.sub("dissertation", "etd").upcase.gsub('-','_')}"]
-      out.empty? ? nil : out
+      if is_withdrawn(obj)
+        nil
+      else
+        attrs = obj.attrs ? JSON.parse(obj.attrs) : {}
+        out = (attrs['disciplines'] || []).map{|s| "discipline:#{s}"} +
+              (attrs['keywords'] || []).map{|s| "keyword:#{s}"} +
+              (attrs['subjects'] || []).map{|s| "subject:#{s}"} +
+              (attrs['grants'] || []).map{|s| "grant:#{s['name']}"} +
+              ["source:#{obj.source}"] +
+              ["type:#{obj.genre.sub("dissertation", "etd").upcase.gsub('-','_')}"]
+        out.empty? ? nil : out
+      end
     }
   end
 
@@ -264,7 +266,11 @@ ItemType = GraphQL::ObjectType.define do
 
   field :keywords, types[types.String], "Keywords (unrestricted) applying to this item" do
     resolve -> (obj, args, ctx) {
-      (obj.attrs ? JSON.parse(obj.attrs) : {})['keywords']
+      if is_withdrawn(obj)
+        nil
+      else
+        (obj.attrs ? JSON.parse(obj.attrs) : {})['keywords']
+      end
     }
   end
 
@@ -323,7 +329,7 @@ ItemType = GraphQL::ObjectType.define do
   field :suppFiles, types[SuppFileType], "Supplemental material (if any)" do
     resolve -> (obj, args, ctx) {
       supps = (obj.attrs ? JSON.parse(obj.attrs) : {})['supp_files']
-      if supps
+      if supps and ! is_withdrawn(obj)
         supps.map { |data| data.merge({item_id: obj.id}) }
       else
         nil
@@ -378,7 +384,11 @@ ItemType = GraphQL::ObjectType.define do
 
   field :isPeerReviewed, types.Boolean, "Whether the work has undergone a peer review process" do
     resolve -> (obj, args, ctx) {
-      !!((obj.attrs ? JSON.parse(obj.attrs) : {})['is_peer_reviewed'])
+      if is_withdrawn(obj)
+        nil
+      else
+        !!((obj.attrs ? JSON.parse(obj.attrs) : {})['is_peer_reviewed'])
+      end
     }
   end
 end
