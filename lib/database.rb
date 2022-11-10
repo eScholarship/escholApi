@@ -17,6 +17,7 @@ def waitForSocks(host, port)
 end
 
 def ensureConnect(envPrefix)
+  Sequel.default_timezone=:local
   dbConfig = { "adapter"  => "mysql2",
                "host"     => ENV["#{envPrefix}_HOST"] || raise("missing env #{envPrefix}_HOST"),
                "port"     => ENV["#{envPrefix}_PORT"] || raise("missing env #{envPrefix}_PORT").to_i,
