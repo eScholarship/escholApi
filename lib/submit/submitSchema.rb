@@ -269,7 +269,7 @@ def depositItem(input, replace:)
   # Create the UCI metadata file on the submit server
   source_url = input[:sourceFeedLink] || "oapolicy.universityofcalifornia.edu"
   actionVerb = replace == :files ? "Redeposited" : replace == :metadata ? "Updated" : "Deposited"
-  comment = input[:deposit_comment] || "'#{actionVerb} at #{source_url}' "
+  comment = "'#{actionVerb} at #{source_url}' "
   Net::SSH.start($submitServer, $submitUser, **$submitSSHOpts) do |ssh|
     # Verify that the ARK isn't a dupe for this publication ID (can happen if old incomplete
     # items aren't properly cleaned up).
