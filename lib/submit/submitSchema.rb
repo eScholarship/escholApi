@@ -267,7 +267,7 @@ def depositItem(input, replace:)
   uci = uciFromInput(input, fullArk)
 
   # Create the UCI metadata file on the submit server
-  source_url = input[:sourceFeedLink] || "oapolicy.universityofcalifornia.edu"
+  source_url = input[:sourceURL] || "oapolicy.universityofcalifornia.edu"
   actionVerb = replace == :files ? "Redeposited" : replace == :metadata ? "Updated" : "Deposited"
   comment = "'#{actionVerb} at #{source_url}' "
   Net::SSH.start($submitServer, $submitUser, **$submitSSHOpts) do |ssh|
@@ -491,6 +491,7 @@ DepositItemInput = GraphQL::InputObjectType.define do
   argument :sourceName, !types.String, "Source of data that will be deposited (eg. 'elements', 'ojs', etc.)"
   argument :sourceID, !types.String, "Identifier or other identifying information of data within the source system"
   argument :sourceFeedLink, types.String, "Original feed data from the source (if any)"
+  argument :sourceURL, types.String, "URL to the source of the deposit"
   argument :submitterEmail, !types.String, "Email address of person performing this submission"
   argument :title, !types.String, "Title of the item (may include embedded HTML formatting tags)"
   argument :type, !ItemTypeEnum, "Publication type; majority are ARTICLE"
@@ -561,6 +562,7 @@ ReplaceMetadataInput = GraphQL::InputObjectType.define do
   argument :sourceName, !types.String, "Source of data that will be deposited (eg. 'elements', 'ojs', etc.)"
   argument :sourceID, !types.String, "Identifier or other identifying information of data within the source system"
   argument :sourceFeedLink, types.String, "Original feed data from the source (if any)"
+  argument :sourceURL, types.String, "URL to the source of the deposit"
   argument :submitterEmail, !types.String, "email address of person performing this submission"
   argument :title, !types.String, "Title of the item (may include embedded HTML formatting tags)"
   argument :type, !ItemTypeEnum, "Publication type; majority are ARTICLE"
