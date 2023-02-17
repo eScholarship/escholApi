@@ -21,7 +21,6 @@ def serveUnitRSS(unitID)
           authors {
             nodes {
               name
-            	orcid
             }
           }
         }
@@ -37,7 +36,7 @@ def serveUnitRSS(unitID)
     descrip = item['abstract'] && !item['abstract'].strip.empty? ? item['abstract'] : item['title']
     descrip.size > 1000 and descrip = descrip[0..((descrip.index(' ',990) || 1000)-1)] + "..."
     date = DateTime.parse(item['added']).rfc2822
-    authors = item['authors']
+    authors = item['authors']['nodes']
     itemChunks << xmlGen('''
       <item>
         <title><%= item["title"] %></title>
@@ -47,7 +46,7 @@ def serveUnitRSS(unitID)
         <pubDate><%= date %></pubDate>
         <% authors.each do |author| %>
           <author>
-            <name><%= author.name =%></name>
+            <name><%= author["name"] =%></name>
           </author>
         <% end %>
       </item>''', binding, xml_header: false)
