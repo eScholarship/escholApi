@@ -45,6 +45,11 @@ def serveUnitRSS(unitID)
         <description><%= descrip %></description>
         <guid isPermaLink="true"><%= item["permalink"] %></guid>
         <pubDate><%= date %></pubDate>
+        <% authors.each do |author| %>
+          <author>
+            <name><%= author.name =%></name>
+          </author>
+        <% end %>
       </item>''', binding, xml_header: false)
   }
 
