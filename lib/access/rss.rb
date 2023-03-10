@@ -21,6 +21,7 @@ def serveUnitRSS(unitID)
           authors {
             nodes {
               name
+              orcid
             }
           }
         }
@@ -37,6 +38,7 @@ def serveUnitRSS(unitID)
     descrip.size > 1000 and descrip = descrip[0..((descrip.index(' ',990) || 1000)-1)] + "..."
     date = DateTime.parse(item['added']).rfc2822
     authors = item['authors']['nodes']
+ 
     itemChunks << xmlGen('''
       <item>
         <title><%= item["title"] %></title>
@@ -47,6 +49,9 @@ def serveUnitRSS(unitID)
         <% authors.each do |author| %>
           <author>
             <name><%= author["name"] =%></name>
+            <% if author["orcid"] %>
+              <uri>https://orcid.org/<%= author["orcid"].gsub("https://orcid.org/", "") =%></uri>
+            <% end %>
           </author>
         <% end %>
       </item>''', binding, xml_header: false)
