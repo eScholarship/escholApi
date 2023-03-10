@@ -21,6 +21,7 @@ def serveUnitRSS(unitID)
           authors {
             nodes {
               name
+              orcid
             }
           }
         }
@@ -47,6 +48,9 @@ def serveUnitRSS(unitID)
         <% authors.each do |author| %>
           <author>
             <name><%= author["name"] =%></name>
+            <% if author["orcid"] %>
+              <uri>'https://orcid.org/' + author["orcid"]</uri>
+            <% end %>
           </author>
         <% end %>
       </item>''', binding, xml_header: false)
