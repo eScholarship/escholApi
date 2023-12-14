@@ -6,7 +6,7 @@ gem 'sinatra-contrib', '>= 2.0.2'
 
 # Database Stack
 gem 'sequel'
-gem 'puma','=4.3.3'
+gem 'puma','4.3.12'
 gem 'colorize'
 gem 'rack-protection'
 gem 'mysql2'
