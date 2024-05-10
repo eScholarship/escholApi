@@ -447,6 +447,7 @@ ItemStatusEnum = GraphQL::EnumType.define do
   value("EMPTY", "Item was published but has no link or files (omitted from queries)")
   value("PUBLISHED", "Normal published item")
   value("WITHDRAWN", "Item was withdrawn (omitted from queries)")
+  value("PENDING", "Item is still pending")
 end
 
 ###################################################################################################
@@ -857,7 +858,7 @@ SuppFileType = GraphQL::ObjectType.define do
   field :contentType, types.String, "Content MIME type of file, if known" do
     resolve -> (obj, args, ctx) { obj['mimeType'] }
   end
-  field :size, types.Int, "Size of the file in bytes" do
+  field :size, GraphQL::Types::BigInt, "Size of the file in bytes" do
     resolve -> (obj, args, ctx) { obj['size'] }
   end
   field :downloadLink, !types.String, "URL to download the file" do
