@@ -421,5 +421,5 @@ class EscholProvider < OAI::Provider::Base
   source_model EscholModel.new
   register_format OclcDublinCore.instance
   register_format Marc21.instance
-  update_granularity OAI::Const::Granularity::LOW
+  update_granularity OAI::Const::Granularity::HIGH
 end
