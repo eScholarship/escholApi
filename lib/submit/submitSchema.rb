@@ -35,18 +35,24 @@ def transformPeople(uci, authOrEd, people)
   return if people.empty?
   uci.find!("#{authOrEd}s").build { |xml|
     people.each { |person|
-      xml.send(authOrEd) {
-        if np = person[:nameParts]
-          np[:fname] and xml.fname(np[:fname])
-          np[:mname] and xml.mname(np[:mname])
-          np[:lname] and xml.lname(np[:lname])
-          np[:suffix] and xml.suffix(np[:suffix])
-          np[:institution] and xml.institution(np[:institution])
-          np[:organization] and xml.organization(np[:organization])
-        end
-        person[:email] and xml.email(person[:email])
-        person[:orcid] and xml.identifier(:type => 'ORCID') { |xml| xml.text person[:orcid] }
-      }
+      np = person[:nameParts]
+      # if "organization" is present in nameParts assume this is a corporate author
+      # and encode accordingly.  Person authors should have an institution *not* an organization
+      if np and np[:organization]
+        xml.organization(np[:organization])
+      else
+        xml.send(authOrEd) {
+          if np = person[:nameParts]
+            np[:fname] and xml.fname(np[:fname])
+            np[:mname] and xml.mname(np[:mname])
+            np[:lname] and xml.lname(np[:lname])
+            np[:suffix] and xml.suffix(np[:suffix])
+            np[:institution] and xml.institution(np[:institution])
+          end
+          person[:email] and xml.email(person[:email])
+          person[:orcid] and xml.identifier(:type => 'ORCID') { |xml| xml.text person[:orcid] }
+        }
+      end
     }
   }
 end
