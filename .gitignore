@@ -13,6 +13,10 @@ eboptions*
 *.out
 *.sql_log
 escholApi.pid
+env.sh
+.ruby-version
+public/node_modules
+public/stylesheets/graphiql.css
 
 # Elastic Beanstalk Files
 .elasticbeanstalk/*
