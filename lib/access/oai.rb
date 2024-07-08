@@ -113,6 +113,8 @@ class EscholRecord
     # Second version of identifier to contain an item link. I (MH) thought this was just for OCLC, but am
     # informed by folks at oaDOI that it's pretty common and preferred for all repos.
     xml.tag!("dc:identifier", "https://escholarship.org/uc/item/#{@data['id'].sub(%r{^ark:/13030/qt}, '')}")
+    xml.tag!("dc:identifier", @data['contentLink'])
+    @data['localIDs'] and @data['localIDs'].select{|item| item['scheme'] == 'DOI'}.each{ |doi| xml.tag!("dc:identifier", "info:doi/#{doi['id']}") }
   end
 
   def to_oai_dc
@@ -293,6 +295,7 @@ class EscholModel < OAI::Provider::Model
       title
       published
       abstract
+      contentLink
       authors { nodes { name } }
       contributors { nodes { name } }
       subjects
@@ -307,6 +310,7 @@ class EscholModel < OAI::Provider::Model
       fpage
       lpage
       issn
+      localIDs { id scheme }
     }
 
     # Individual item (e.g. GetRecord)
@@ -417,5 +421,5 @@ class EscholProvider < OAI::Provider::Base
   source_model EscholModel.new
   register_format OclcDublinCore.instance
   register_format Marc21.instance
-  update_granularity OAI::Const::Granularity::LOW
+  update_granularity OAI::Const::Granularity::HIGH
 end

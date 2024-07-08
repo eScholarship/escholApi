@@ -35,18 +35,24 @@ def transformPeople(uci, authOrEd, people)
   return if people.empty?
   uci.find!("#{authOrEd}s").build { |xml|
     people.each { |person|
-      xml.send(authOrEd) {
-        if np = person[:nameParts]
-          np[:fname] and xml.fname(np[:fname])
-          np[:mname] and xml.lname(np[:mname])
-          np[:lname] and xml.lname(np[:lname])
-          np[:suffix] and xml.suffix(np[:suffix])
-          np[:institution] and xml.institution(np[:institution])
-          np[:organization] and xml.organization(np[:organization])
-        end
-        person[:email] and xml.email(person[:email])
-        person[:orcid] and xml.identifier(:type => 'ORCID') { |xml| xml.text person[:orcid] }
-      }
+      np = person[:nameParts]
+      # if "organization" is present in nameParts assume this is a corporate author
+      # and encode accordingly.  Person authors should have an institution *not* an organization
+      if np and np[:organization]
+        xml.organization(np[:organization])
+      else
+        xml.send(authOrEd) {
+          if np = person[:nameParts]
+            np[:fname] and xml.fname(np[:fname])
+            np[:mname] and xml.mname(np[:mname])
+            np[:lname] and xml.lname(np[:lname])
+            np[:suffix] and xml.suffix(np[:suffix])
+            np[:institution] and xml.institution(np[:institution])
+          end
+          person[:email] and xml.email(person[:email])
+          person[:orcid] and xml.identifier(:type => 'ORCID') { |xml| xml.text person[:orcid] }
+        }
+      end
     }
   }
 end
@@ -267,7 +273,9 @@ def depositItem(input, replace:)
   uci = uciFromInput(input, fullArk)
 
   # Create the UCI metadata file on the submit server
+  source_url = input[:sourceURL] || "oapolicy.universityofcalifornia.edu"
   actionVerb = replace == :files ? "Redeposited" : replace == :metadata ? "Updated" : "Deposited"
+  comment = "'#{actionVerb} at #{source_url}' "
   Net::SSH.start($submitServer, $submitUser, **$submitSSHOpts) do |ssh|
     # Verify that the ARK isn't a dupe for this publication ID (can happen if old incomplete
     # items aren't properly cleaned up).
@@ -286,7 +294,7 @@ def depositItem(input, replace:)
     out = ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb " +
                  "#{replace == :files ? "--replaceFiles" : replace == :metadata ? "--replaceMetadata" : "--depositItem"} " +
                  "#{shortArk} " +
-                 "'#{actionVerb} at oapolicy.universityofcalifornia.edu' " +
+                 "#{comment} " +
                  "#{input['submitterEmail'] || "''" } -", metaText)
     puts "stdout from main subiGuts operation:\n#{out[:stdout]}"
 
@@ -489,6 +497,7 @@ DepositItemInput = GraphQL::InputObjectType.define do
   argument :sourceName, !types.String, "Source of data that will be deposited (eg. 'elements', 'ojs', etc.)"
   argument :sourceID, !types.String, "Identifier or other identifying information of data within the source system"
   argument :sourceFeedLink, types.String, "Original feed data from the source (if any)"
+  argument :sourceURL, types.String, "URL to the source of the deposit"
   argument :submitterEmail, !types.String, "Email address of person performing this submission"
   argument :title, !types.String, "Title of the item (may include embedded HTML formatting tags)"
   argument :type, !ItemTypeEnum, "Publication type; majority are ARTICLE"
@@ -559,6 +568,7 @@ ReplaceMetadataInput = GraphQL::InputObjectType.define do
   argument :sourceName, !types.String, "Source of data that will be deposited (eg. 'elements', 'ojs', etc.)"
   argument :sourceID, !types.String, "Identifier or other identifying information of data within the source system"
   argument :sourceFeedLink, types.String, "Original feed data from the source (if any)"
+  argument :sourceURL, types.String, "URL to the source of the deposit"
   argument :submitterEmail, !types.String, "email address of person performing this submission"
   argument :title, !types.String, "Title of the item (may include embedded HTML formatting tags)"
   argument :type, !ItemTypeEnum, "Publication type; majority are ARTICLE"
