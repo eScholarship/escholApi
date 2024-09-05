@@ -408,6 +408,10 @@ end
 def mintProvisionalID(input)
   sourceName, sourceID = input[:sourceName], input[:sourceID]
   Net::SSH.start($submitServer, $submitUser, **$submitSSHOpts) do |ssh|
+
+    # Check for duplicate source + source ID in the arks table
+    ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb --checkID new_provisional_ark " + "#{sourceName} #{sourceID}")
+
     result = ssh.exec_sc!("/apps/eschol/erep/xtf/control/tools/mintArk.py '#{sourceName}' '#{sourceID}' provisional")
     result[:stdout] =~ %r{(qt\w{8})} or raise("mintArk failed: #{result}")
     return { id: "ark:/13030/#{$1}" }
