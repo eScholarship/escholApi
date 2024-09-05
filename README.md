@@ -3,6 +3,7 @@
 ### Setup and Running locally
 
 ```bash
+# You will need to have an appropriate version of ruby and npm installed
 git clone repo
 cd to folder
 ./setup.sh
