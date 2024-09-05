@@ -9,10 +9,10 @@ cd to folder
 # run the server
 source env.sh   # use a jschol-compatible env file
 ./run.sh
-# Visit http://localhost:3000
+# Visit http://localhost:4001/graphql/iql
 ```
 
-[Visit browser](http://localhost:3000)
+[Visit browser](http://localhost:4001/graphql/iql)
 
 # Features
 * Graphql API
