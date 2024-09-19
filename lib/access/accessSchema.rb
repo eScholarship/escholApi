@@ -974,7 +974,7 @@ UnitType = GraphQL::ObjectType.define do
     resolve -> (obj, args, ctx) { ItemsData.new(args, ctx, unitID: obj.id) }
   end
 
-  field :elementsId, types.Int, "Elements ID for the unit" do
+  field :ucpmsId, types.Int, "Elements ID for the unit" do
     resolve -> (obj, args, ctx) {
       (obj.attrs ? JSON.parse(obj.attrs) : {})['elements_id']
     }
@@ -1108,11 +1108,11 @@ AccessQueryType = GraphQL::ObjectType.define do
     resolve -> (obj, args, ctx) { Unit[args["id"]] }
   end
 
-  field :unitsElementsList, types[UnitType], "Returns the units matching a given list of Elements IDs" do
-    argument :elementsIdList, !types[types.Int]
+  field :unitsUCPMSList, types[UnitType], "Returns the units matching a given list of UCPMS IDs" do
+    argument :ucpmsIdList, !types[types.Int]
     resolve -> (obj, args, ctx) {
-      elementsIdListString = args['elementsIdList'].join(", ")
-      Unit.where(Sequel.lit("attrs->>'$.elements_id' IN (#{elementsIdListString})"))
+      ucpmsIdListString = args['ucpmsIdList'].join(", ")
+      Unit.where(Sequel.lit("attrs->>'$.elements_id' IN (#{ucpmsIdListString})"))
     }
   end
 
