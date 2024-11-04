@@ -173,6 +173,7 @@ def convertRights(rights)
     when "https://creativecommons.org/licenses/by-nc/4.0/";    "cc4"
     when "https://creativecommons.org/licenses/by-nc-sa/4.0/"; "cc5"
     when "https://creativecommons.org/licenses/by-nc-nd/4.0/"; "cc6"
+    when "https://creativecommons.org/publicdomain/zero/1.0/"; "cc0"
     when nil;                                                  "public"
     else raise("unexpected rights value: #{rights.inspect}")
   end
@@ -279,7 +280,7 @@ def depositItem(input, replace:)
     metadata: "Updated",
     rights:   "Rights Updated"
   }
-  actionVerb = replace_verbs.find(replace, "Deposited")
+  actionVerb = replace_verbs.find(replace) || "Deposited"
   comment = "'#{actionVerb} at #{source_url}' "
   Net::SSH.start($submitServer, $submitUser, **$submitSSHOpts) do |ssh|
     # Verify that the ARK isn't a dupe for this publication ID (can happen if old incomplete
@@ -399,20 +400,6 @@ def updateIssue(input)
   # All done.
   return { message: "Cover Image uploaded" }
 end
-
-###################################################################################################
-# def updateRights(input)
-#   id = input[:id]
-#   rights = input[:rights]
-
-#   # Verify the rights are formatted correctly
-#   if (rights =~ '(https:\/\/creativecommons\.org\/licenses\/)(by)(-nc)?(-nd)?(-sa)?(\/4\.0\/)')
-
-
-#   else
-#     return { message: "CC rights string was incorrectly formatted. No work was done." }
-#   end
-# end
 
 ###################################################################################################
 MintProvisionalIDInput = GraphQL::InputObjectType.define do
