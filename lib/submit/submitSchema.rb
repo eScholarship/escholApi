@@ -173,6 +173,7 @@ def convertRights(rights)
     when "https://creativecommons.org/licenses/by-nc/4.0/";    "cc4"
     when "https://creativecommons.org/licenses/by-nc-sa/4.0/"; "cc5"
     when "https://creativecommons.org/licenses/by-nc-nd/4.0/"; "cc6"
+    when "https://creativecommons.org/publicdomain/zero/1.0/"; "cc0"
     when nil;                                                  "public"
     else raise("unexpected rights value: #{rights.inspect}")
   end
@@ -274,7 +275,12 @@ def depositItem(input, replace:)
 
   # Create the UCI metadata file on the submit server
   source_url = input[:sourceURL] || "oapolicy.universityofcalifornia.edu"
-  actionVerb = replace == :files ? "Redeposited" : replace == :metadata ? "Updated" : "Deposited"
+  replace_verbs = {
+    files:    "Redeposited",
+    metadata: "Updated",
+    rights:   "Rights Updated"
+  }
+  actionVerb = replace_verbs.find(replace) || "Deposited"
   comment = "'#{actionVerb} at #{source_url}' "
   Net::SSH.start($submitServer, $submitUser, **$submitSSHOpts) do |ssh|
     # Verify that the ARK isn't a dupe for this publication ID (can happen if old incomplete
@@ -291,8 +297,16 @@ def depositItem(input, replace:)
       io.write(metaText)
     }
 
+    # hashmap referenced below, with --depositItem as default.
+    replace_options = {
+      files:    "--replaceFiles",
+      metadata: "--replaceMetadata",
+      rights:   "--replaceRights"
+    }
+
+    # Call subiGuts with specified options, get stdout.
     out = ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb " +
-                 "#{replace == :files ? "--replaceFiles" : replace == :metadata ? "--replaceMetadata" : "--depositItem"} " +
+                 "#{replace_options.fetch(replace, "--depositItem")} " +
                  "#{shortArk} " +
                  "#{comment} " +
                  "#{input['submitterEmail'] || "''" } -", metaText)
@@ -644,6 +658,23 @@ ReplaceFilesOutput = GraphQL::ObjectType.define do
 end
 
 ###################################################################################################
+UpdateRightsInput = GraphQL::InputObjectType.define do
+  name "UpdateRightsInput"
+  description "Input to the CC License update"
+
+  argument :id, !types.ID, "Identifier of the item to update"
+  argument :rights, !types.String, "License (none, or e.g. https://creativecommons.org/licenses/by-nc/4.0/)"
+end
+
+UpdateRightsOutput = GraphQL::ObjectType.define do
+  name "UpdateRightsOutput"
+  description "Output from updateRights mutation"
+  field :message, !types.String, "Message describing the outcome" do
+    resolve -> (obj, args, ctx) { return obj[:message] }
+  end
+end
+
+###################################################################################################
 WithdrawItemInput = GraphQL::InputObjectType.define do
   name "WithdrawItemInput"
   description "Input to the withdrawItem mutation"
@@ -712,6 +743,14 @@ SubmitMutationType = GraphQL::ObjectType.define do
     }
   end
 
+  field :updateRights, !UpdateRightsOutput, "Update the CC License of an eSchol item" do
+    argument :input, !UpdateRightsInput
+    resolve -> (obj, args, ctx) {
+      Thread.current[:privileged] or halt(403)
+      return depositItem(args[:input], replace: :rights)
+    }
+  end
+
   field :replaceFiles, !ReplaceFilesOutput, "Replace just the files (and external links) of an existing item" do
     argument :input, !ReplaceFilesInput
     resolve -> (obj, args, ctx) {
@@ -735,4 +774,5 @@ SubmitMutationType = GraphQL::ObjectType.define do
       return updateIssue(args[:input])
     }
   end
+
 end
