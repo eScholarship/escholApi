@@ -280,7 +280,7 @@ def depositItem(input, replace:)
     metadata: "Updated",
     rights:   "Rights Updated"
   }
-  actionVerb = replace_verbs.find(replace) || "Deposited"
+  actionVerb = replace_verbs.fetch(replace, "Deposited")
   comment = "'#{actionVerb} at #{source_url}' "
   Net::SSH.start($submitServer, $submitUser, **$submitSSHOpts) do |ssh|
     # Verify that the ARK isn't a dupe for this publication ID (can happen if old incomplete
