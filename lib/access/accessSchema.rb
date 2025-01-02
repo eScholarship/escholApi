@@ -63,8 +63,8 @@ def is_withdrawn(obj)
 end
 
 ###################################################################################################
-ItemType = GraphQL::ObjectType.define do
-  name "Item"
+class ItemType < GraphQL::Schema::Object
+  graphql_name "Item"
   description "An item"
 
   field :id, !types.ID, "eScholarship ARK identifier" do
@@ -394,8 +394,8 @@ ItemType = GraphQL::ObjectType.define do
 end
 
 ###################################################################################################
-LocalIDType = GraphQL::ObjectType.define do
-  name "LocalID"
+class LocalIDType < GraphQL::Schema::Object
+  graphql_name "LocalID"
   description "Local item identifier, e.g. DOI, PubMed ID, LBNL ID, etc."
 
   field :id, !types.String, "The identifier string" do
@@ -428,8 +428,8 @@ LocalIDType = GraphQL::ObjectType.define do
 end
 
 ###################################################################################################
-ItemOrderEnum = GraphQL::EnumType.define do
-  name "ItemOrder"
+class ItemOrderEnum < GraphQL::Schema::Enum
+  graphql_name "ItemOrder"
   description "Ordering for item list results"
   value("ADDED_ASC", "Date added to eScholarship, oldest to newest")
   value("ADDED_DESC", "Date added to eScholarship, newest to oldest")
@@ -440,8 +440,8 @@ ItemOrderEnum = GraphQL::EnumType.define do
 end
 
 ###################################################################################################
-ItemStatusEnum = GraphQL::EnumType.define do
-  name "ItemStatus"
+class ItemStatusEnum < GraphQL::Schema::Enum
+  graphql_name "ItemStatus"
   description "Publication status of an Item (usually PUBLISHED)"
   value("EMBARGOED", "Currently under embargo (omitted from queries)")
   value("EMPTY", "Item was published but has no link or files (omitted from queries)")
@@ -451,8 +451,8 @@ ItemStatusEnum = GraphQL::EnumType.define do
 end
 
 ###################################################################################################
-ItemTypeEnum = GraphQL::EnumType.define do
-  name "ItemType"
+class ItemTypeEnum < GraphQL::Schema::Enum
+  graphql_name "ItemType"
   description "Publication type of an Item (often ARTICLE)"
   value("ARTICLE", "Normal article, e.g. a journal article")
   value("CHAPTER", "Chapter within a book/monograph")
@@ -463,8 +463,8 @@ ItemTypeEnum = GraphQL::EnumType.define do
 end
 
 ###################################################################################################
-ItemsType = GraphQL::ObjectType.define do
-  name "Items"
+class ItemsType < GraphQL::Schema::Object
+  graphql_name "Items"
   description "A list of items, possibly very long, with paging capability"
 
   field :total, !types.Int, "Approximate total items on all pages" do
@@ -598,8 +598,8 @@ class ItemsData
 end
 
 ###################################################################################################
-AuthorsType = GraphQL::ObjectType.define do
-  name "Authors"
+class AuthorsType < GraphQL::Schema::Object
+  graphql_name "Authors"
   description "A list of authors, with paging capability because some items have thousands"
   field :total, !types.Int, "Approximate total authors on all pages"
   field :nodes, !types[AuthorType], "Array of the authors on this page" do
@@ -647,8 +647,8 @@ class AuthorsData
 end
 
 ###################################################################################################
-AuthorIDType = GraphQL::ObjectType.define do
-  name "AuthorID"
+class AuthorIDType < GraphQL::Schema::Object
+  graphql_name "AuthorID"
   description "Author identifier, e.g. escholarship, ORCID, other."
 
   field :id, !types.String, "The identifier string" do
@@ -677,8 +677,8 @@ AuthorIDType = GraphQL::ObjectType.define do
 end
 
 ###################################################################################################
-AuthorType = GraphQL::ObjectType.define do
-  name "Author"
+class AuthorType < GraphQL::Schema::Object
+  graphql_name "Author"
   description "A single author (can be a person or organization)"
 
   field :name, !types.String, "Combined name parts; usually 'lname, fname'" do
@@ -756,8 +756,8 @@ AuthorType = GraphQL::ObjectType.define do
 end
 
 ###################################################################################################
-ContributorsType = GraphQL::ObjectType.define do
-  name "Contributors"
+class ContributorsType < GraphQL::Schema::Object
+  graphql_name "Contributors"
   description "A list of contributors (e.g. editors, advisors), with rarely-needed paging capability"
   field :total, !types.Int, "Approximate total contributors on all pages"
   field :nodes, !types[ContributorType], "Array of the contribuors on this page"
@@ -796,8 +796,8 @@ class ContributorsData
 end
 
 ###################################################################################################
-ContributorType = GraphQL::ObjectType.define do
-  name "Contributor"
+class ContributorType < GraphQL::Schema::Object
+  graphql_name "Contributor"
   description "A single author (can be a person or organization)"
 
   field :name, !types.String, "Combined name parts; usually 'lname, fname'" do
@@ -821,8 +821,8 @@ ContributorType = GraphQL::ObjectType.define do
 end
 
 ###################################################################################################
-NamePartsType = GraphQL::ObjectType.define do
-  name "NameParts"
+class NamePartsType < GraphQL::Schema::Object
+  graphql_name "NameParts"
   description "Individual access to parts of the name, generally only used in special cases"
   field :name, !types.String, "Combined name parts; usually 'lname, fname'" do
     resolve -> (obj, args, ctx) { obj['name'] }
@@ -849,8 +849,8 @@ NamePartsType = GraphQL::ObjectType.define do
 end
 
 ###################################################################################################
-SuppFileType = GraphQL::ObjectType.define do
-  name "SuppFile"
+class SuppFileType < GraphQL::Schema::Object
+  graphql_name "SuppFile"
   description "A file containing supplemental material for an item"
   field :file, !types.String, "Name of the file" do
     resolve -> (obj, args, ctx) { obj['file'] }
@@ -870,8 +870,8 @@ SuppFileType = GraphQL::ObjectType.define do
 end
 
 ###################################################################################################
-UnitsType = GraphQL::ObjectType.define do
-  name "Units"
+class UnitsType < GraphQL::Schema::Object
+  graphql_name "Units"
   description "A list of units, with paging capability because there are thousands"
 
   field :total, !types.Int, "Approximate total units on all pages" do
@@ -939,8 +939,8 @@ class UnitsData
 end
 
 ###################################################################################################
-IssueType = GraphQL::ObjectType.define do
-  name "Issue"
+class IssueType < GraphQL::Schema::Object
+  graphql_name "Issue"
   description "A single issue of a journal"
 
   field :volume, types.String, "Volume number (sometimes null for issue-only journals)"
@@ -949,8 +949,8 @@ IssueType = GraphQL::ObjectType.define do
 end
 
 ###################################################################################################
-UnitType = GraphQL::ObjectType.define do
-  name "Unit"
+class UnitType < GraphQL::Schema::Object
+  graphql_name "Unit"
   description "A campus, department, series, or other organized unit within eScholarship"
 
   field :id, !types.ID, "Short unit identifier, e.g. 'lbnl_rw'"
@@ -1027,8 +1027,8 @@ UnitType = GraphQL::ObjectType.define do
 end
 
 ###################################################################################################
-UnitTypeEnum = GraphQL::EnumType.define do
-  name "UnitType"
+class UnitTypeEnum < GraphQL::Schema::Enum
+  graphql_name "UnitType"
   description "Type of unit within eScholarship"
   value("CAMPUS",           "campus within the UC system")
   value("JOURNAL",          "journal hosted by eScholarship")
@@ -1063,8 +1063,8 @@ def defineItemsArgs
 end
 
 ###################################################################################################
-AccessQueryType = GraphQL::ObjectType.define do
-  name "AccessQuery"
+class AccessQueryType < GraphQL::Schema::Object
+  graphql_name "AccessQuery"
   description "The eScholarship access API"
 
   field :item, ItemType, "Get item's info given its identifier" do
