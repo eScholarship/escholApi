@@ -402,18 +402,18 @@ def updateIssue(input)
 end
 
 ###################################################################################################
-MintProvisionalIDInput = GraphQL::InputObjectType.define do
-  name "MintProvisionalIDInput"
+class MintProvisionalIDInput < GraphQL::Schema::InputObject
+  graphql_name "MintProvisionalIDInput"
   description "Input for mintProvisionalID"
 
-  argument :sourceName, !types.String, "Source of data that will be deposited (eg. 'elements', 'ojs', etc.)"
-  argument :sourceID, !types.String, "Identifier or other identifying information of data within the source system"
+  argument :sourceName, String, "Source of data that will be deposited (eg. 'elements', 'ojs', etc.)"
+  argument :sourceID, String, "Identifier or other identifying information of data within the source system"
 end
 
-MintProvisionalIDOutput = GraphQL::ObjectType.define do
-  name "MintProvisionalIDOutput"
+class MintProvisionalIDOutput < GraphQL::Schema::Object
+  graphql_name "MintProvisionalIDOutput"
   description "Output from the mintProvisionalID mutation"
-  field :id, !types.ID, "The minted item identifier" do
+  field :id, ID, "The minted item identifier", null: false do
     resolve -> (obj, args, ctx) { obj[:id] }
   end
 end
@@ -429,296 +429,296 @@ def mintProvisionalID(input)
 end
 
 ###################################################################################################
-NamePartsInput = GraphQL::InputObjectType.define do
-  name "NamePartsInput"
+class NamePartsInput < GraphQL::Schema::InputObject
+  graphql_name "NamePartsInput"
   description "The name of a person or organization."
 
-  argument :fname, types.String, "First name / given name"
-  argument :lname, types.String, "Last name / surname"
-  argument :mname, types.String, "Middle name"
-  argument :suffix, types.String, "Suffix (e.g. Ph.D)"
-  argument :institution, types.String, "Institutional affiliation"
-  argument :organization, types.String, "Instead of lname/fname if this is a group/corp"
+  argument :fname, String, "First name / given name", required: false
+  argument :lname, String, "Last name / surname", required: false
+  argument :mname, String, "Middle name", required: false
+  argument :suffix, String, "Suffix (e.g. Ph.D)", required: false
+  argument :institution, String, "Institutional affiliation", required: false
+  argument :organization, String, "Instead of lname/fname if this is a group/corp", required: false
 end
 
 ###################################################################################################
-AuthorInput = GraphQL::InputObjectType.define do
-  name "AuthorInput"
+class AuthorInput < GraphQL::Schema::InputObject
+  graphql_name "AuthorInput"
   description "A single author (can be a person or organization)"
 
-  argument :nameParts, !NamePartsInput, "Name of the author"
-  argument :email, types.String, "Email"
-  argument :orcid, types.String, "ORCID identifier"
+  argument :nameParts, NamePartsInput, "Name of the author"
+  argument :email, String, "Email", required: false
+  argument :orcid, String, "ORCID identifier", required: false
 end
 
 ###################################################################################################
-ContributorInput = GraphQL::InputObjectType.define do
-  name "ContributorInput"
+class ContributorInput < GraphQL::Schema::InputObject
+  graphql_name "ContributorInput"
   description "A single author (can be a person or organization)"
 
-  argument :role, !RoleEnum, "Role in which this person or org contributed"
-  argument :nameParts, !NamePartsInput, "Name of the contributor"
-  argument :email, types.String, "Email"
-  argument :orcid, types.String, "ORCID identifier"
+  argument :role, RoleEnum, "Role in which this person or org contributed"
+  argument :nameParts, NamePartsInput, "Name of the contributor"
+  argument :email, String, "Email", required: false
+  argument :orcid, String, "ORCID identifier", required: false
 end
 
 ###################################################################################################
-SuppFileInput = GraphQL::InputObjectType.define do
-  name "SuppFileInput"
+class SuppFileInput < GraphQL::Schema::InputObject
+  graphql_name "SuppFileInput"
   description "A file containing supplemental material for an item"
 
-  argument :file, !types.String, "Name of the file"
-  argument :contentType, types.String, "Content MIME type of file, if known"
-  argument :size, !types.Int, "Size of the file in bytes"
-  argument :fetchLink, !types.String, "URL from which to fetch the file"
-  argument :title, types.String, "Display title for file"
+  argument :file, String, "Name of the file"
+  argument :contentType, String, "Content MIME type of file, if known", required: false
+  argument :size, Int, "Size of the file in bytes"
+  argument :fetchLink, String, "URL from which to fetch the file"
+  argument :title, String, "Display title for file", required: false
 end
 
 ###################################################################################################
-HTMLSuppFileInput = GraphQL::InputObjectType.define do
-  name "HTMLSuppFileInput"
+class HTMLSuppFileInput < GraphQL::Schema::InputObject
+  graphql_name "HTMLSuppFileInput"
   description "An image file that is required to display an HTML content file"
 
-  argument :file, !types.String, "Name of the file"
-  argument :fetchLink, !types.String, "URL from which to fetch the file"
+  argument :file, String, "Name of the file"
+  argument :fetchLink, String, "URL from which to fetch the file"
 end
 
 ###################################################################################################
-LocalIDInput = GraphQL::InputObjectType.define do
-  name "LocalIDInput"
+class LocalIDInput < GraphQL::Schema::InputObject
+  graphql_name "LocalIDInput"
   description "Local item identifier, e.g. DOI, PubMed ID, LBNL ID, etc."
 
-  argument :id, !types.String, "The identifier string"
-  argument :scheme, !ItemIDSchemeEnum, "The scheme under which the identifier was minted"
-  argument :subScheme, types.String, "If scheme is OTHER_ID, this will be more specific"
+  argument :id, String, "The identifier string"
+  argument :scheme, ItemIDSchemeEnum, "The scheme under which the identifier was minted"
+  argument :subScheme, String, "If scheme is OTHER_ID, this will be more specific", required: false
 end
 
 ###################################################################################################
-GrantInput = GraphQL::InputObjectType.define do
-  name "GrantInput"
+class GrantInput < GraphQL::Schema::InputObject
+  graphql_name "GrantInput"
   description "Name and reference of linked grant funding"
 
-  argument :name, !types.String, "The full name of the agency and grant"
-  argument :reference, !types.String, "Reference code of the grant"
+  argument :name, String, "The full name of the agency and grant"
+  argument :reference, String, "Reference code of the grant"
 end
 
 ###################################################################################################
-DepositItemInput = GraphQL::InputObjectType.define do
-  name "DepositItemInput"
+class DepositItemInput < GraphQL::Schema::InputObject
+  graphql_name "DepositItemInput"
   description "Information used to create item data"
 
-  argument :id, types.ID, "Identifier of the item to update/create; omit to mint a new identifier"
-  argument :sourceName, !types.String, "Source of data that will be deposited (eg. 'elements', 'ojs', etc.)"
-  argument :sourceID, !types.String, "Identifier or other identifying information of data within the source system"
-  argument :sourceFeedLink, types.String, "Original feed data from the source (if any)"
-  argument :sourceURL, types.String, "URL to the source of the deposit"
-  argument :submitterEmail, !types.String, "Email address of person performing this submission"
-  argument :title, !types.String, "Title of the item (may include embedded HTML formatting tags)"
-  argument :type, !ItemTypeEnum, "Publication type; majority are ARTICLE"
-  argument :published, !types.String, "Date the item was published"
-  argument :isPeerReviewed, !types.Boolean, "Whether the work has undergone a peer review process"
-  argument :contentLink, types.String, "Link from which to fetch the content file (must be .pdf, .doc, or .docx)"
-  argument :contentVersion, FileVersionEnum, "Version of the content file (e.g. AUTHOR_VERSION)"
-  argument :contentFileName, types.String, "Original name of the content file"
-  argument :authors, types[AuthorInput], "All authors"
-  argument :abstract, types.String, "Abstract (may include embedded HTML formatting tags)"
-  argument :journal, types.String, "Journal name"
-  argument :volume, types.String, "Journal volume number"
-  argument :issue, types.String, "Journal issue number"
-  argument :issueTitle, types.String, "Title of the issue"
-  argument :issueDate, types.String, "Date of the issue"
-  argument :issueDescription, types.String, "Description of the issue"
-  argument :issueCoverCaption, types.String, "Caption for the issue cover image"
-  argument :sectionHeader, types.String, "Section header"
-  argument :orderInSection, types.Int, "Order of article in section"
-  argument :issn, types.String, "Journal ISSN"
-  argument :publisher, types.String, "Publisher of the item (if any)"
-  argument :proceedings, types.String, "Proceedings within which item appears (if any)"
-  argument :isbn, types.String, "Book ISBN"
-  argument :customCitation, types.String, "Custom citation"
-  argument :contributors, types[ContributorInput], "Editors, advisors, etc. (if any)"
-  argument :units, !types[types.String], "The series/unit id(s) associated with this item"
-  argument :subjects, types[types.String], "Subject terms (unrestricted) applying to this item"
-  argument :keywords, types[types.String], "Keywords (unrestricted) applying to this item"
-  argument :disciplines, types[types.String], "Disciplines applying to this item"
-  argument :grants, types[GrantInput], "Funding grants linked to this item"
-  argument :language, types.String, "Language specification (ISO 639-2 code)"
-  argument :embargoExpires, DateType, "Embargo expiration date (if any)"
-  argument :rights, types.String, "License (none, or e.g. https://creativecommons.org/licenses/by-nc/4.0/)"
-  argument :fpage, types.String, "First page (within a larger work like a journal issue)"
-  argument :lpage, types.String, "Last page (within a larger work like a journal issue)"
-  argument :suppFiles, types[SuppFileInput], "Supplemental material (if any)"
-  argument :imgFiles, types[HTMLSuppFileInput], "Image files required for HTML display"
-  argument :cssFiles, types[HTMLSuppFileInput], "CSS files required for HTML display"
-  argument :ucpmsPubType, types.String, "If publication originated from UCPMS, the type within that system"
-  argument :localIDs, types[LocalIDInput], "Local identifiers, e.g. DOI, PubMed ID, LBNL, etc."
-  argument :externalLinks, types[types.String], "Published web location(s) external to eScholarshp"
-  argument :bookTitle, types.String, "Title of the book within which this item appears"
-  argument :pubRelation, PubRelationEnum, "Publication relationship of this item to eScholarship"
-  argument :dateSubmitted, types.String, "Date the article was submitted"
-  argument :dateAccepted, types.String, "Date the article was accepted"
-  argument :datePublished, types.String, "Date the article was published"
-  argument :dataAvailability, types.String, "Data availability statement"
-  argument :dataURL, types.String, "URL to data available in a public repository"
+  argument :id, ID, "Identifier of the item to update/create; omit to mint a new identifier", required: false
+  argument :sourceName, String, "Source of data that will be deposited (eg. 'elements', 'ojs', etc.)"
+  argument :sourceID, String, "Identifier or other identifying information of data within the source system"
+  argument :sourceFeedLink, String, "Original feed data from the source (if any)", required: false
+  argument :sourceURL, String, "URL to the source of the deposit", required: false
+  argument :submitterEmail, String, "Email address of person performing this submission"
+  argument :title, String, "Title of the item (may include embedded HTML formatting tags)"
+  argument :type, ItemTypeEnum, "Publication type; majority are ARTICLE"
+  argument :published, String, "Date the item was published"
+  argument :isPeerReviewed, Boolean, "Whether the work has undergone a peer review process"
+  argument :contentLink, String, "Link from which to fetch the content file (must be .pdf, .doc, or .docx)", required: false
+  argument :contentVersion, FileVersionEnum, "Version of the content file (e.g. AUTHOR_VERSION)", required: false
+  argument :contentFileName, String, "Original name of the content file", required: false
+  argument :authors, [AuthorInput], "All authors", required: false
+  argument :abstract, String, "Abstract (may include embedded HTML formatting tags)", required: false
+  argument :journal, String, "Journal name", required: false
+  argument :volume, String, "Journal volume number", required: false
+  argument :issue, String, "Journal issue number", required: false
+  argument :issueTitle, String, "Title of the issue", required: false
+  argument :issueDate, String, "Date of the issue", required: false
+  argument :issueDescription, String, "Description of the issue", required: false
+  argument :issueCoverCaption, String, "Caption for the issue cover image", required: false
+  argument :sectionHeader, String, "Section header", required: false
+  argument :orderInSection, Int, "Order of article in section", required: false
+  argument :issn, String, "Journal ISSN", required: false
+  argument :publisher, String, "Publisher of the item (if any)", required: false
+  argument :proceedings, String, "Proceedings within which item appears (if any)", required: false
+  argument :isbn, String, "Book ISBN", required: false
+  argument :customCitation, String, "Custom citation", required: false
+  argument :contributors, [ContributorInput], "Editors, advisors, etc. (if any)", required: false
+  argument :units, [String], "The series/unit id(s) associated with this item"
+  argument :subjects, [String], "Subject terms (unrestricted) applying to this item", required: false
+  argument :keywords, [String], "Keywords (unrestricted) applying to this item", required: false
+  argument :disciplines, [String], "Disciplines applying to this item", required: false
+  argument :grants, [GrantInput], "Funding grants linked to this item", required: false
+  argument :language, String, "Language specification (ISO 639-2 code)", required: false
+  argument :embargoExpires, DateType, "Embargo expiration date (if any)", required: false
+  argument :rights, String, "License (none, or e.g. https://creativecommons.org/licenses/by-nc/4.0/)", required: false
+  argument :fpage, String, "First page (within a larger work like a journal issue)", required: false
+  argument :lpage, String, "Last page (within a larger work like a journal issue)", required: false
+  argument :suppFiles, [SuppFileInput], "Supplemental material (if any)", required: false
+  argument :imgFiles, [HTMLSuppFileInput], "Image files required for HTML display", required: false
+  argument :cssFiles, [HTMLSuppFileInput], "CSS files required for HTML display", required: false
+  argument :ucpmsPubType, String, "If publication originated from UCPMS, the type within that system", required: false
+  argument :localIDs, [LocalIDInput], "Local identifiers, e.g. DOI, PubMed ID, LBNL, etc.", required: false
+  argument :externalLinks, [String], "Published web location(s) external to eScholarshp", required: false
+  argument :bookTitle, String, "Title of the book within which this item appears", required: false
+  argument :pubRelation, PubRelationEnum, "Publication relationship of this item to eScholarship", required: false
+  argument :dateSubmitted, String, "Date the article was submitted", required: false
+  argument :dateAccepted, String, "Date the article was accepted", required: false
+  argument :datePublished, String, "Date the article was published", required: false
+  argument :dataAvailability, String, "Data availability statement", required: false
+  argument :dataURL, String, "URL to data available in a public repository", required: false
 end
 
-DepositItemOutput = GraphQL::ObjectType.define do
-  name "DepositItemOutput"
+class DepositItemOutput < GraphQL::Schema::Object
+  graphql_name "DepositItemOutput"
   description "Output from the depositItem mutation"
-  field :id, !types.ID, "The (possibly new) item identifier" do
+  field :id, ID, "The (possibly new) item identifier", null: false do
     resolve -> (obj, args, ctx) { return obj[:id] }
   end
-  field :message, !types.String, "Message describing what was done" do
+  field :message, String, "Message describing what was done", null: false do
     resolve -> (obj, args, ctx) { return obj[:message] }
   end
 end
 
 ###################################################################################################
-ReplaceMetadataInput = GraphQL::InputObjectType.define do
-  name "ReplaceMetadataInput"
+class ReplaceMetadataInput < GraphQL::Schema::InputObject
+  graphql_name "ReplaceMetadataInput"
   description "Information used to update item metadata"
 
-  argument :id, !types.ID, "Identifier of the item to update/create; omit to mint a new identifier"
-  argument :sourceName, !types.String, "Source of data that will be deposited (eg. 'elements', 'ojs', etc.)"
-  argument :sourceID, !types.String, "Identifier or other identifying information of data within the source system"
-  argument :sourceFeedLink, types.String, "Original feed data from the source (if any)"
-  argument :sourceURL, types.String, "URL to the source of the deposit"
-  argument :submitterEmail, !types.String, "email address of person performing this submission"
-  argument :title, !types.String, "Title of the item (may include embedded HTML formatting tags)"
-  argument :type, !ItemTypeEnum, "Publication type; majority are ARTICLE"
-  argument :published, !types.String, "Date the item was published"
-  argument :isPeerReviewed, !types.Boolean, "Whether the work has undergone a peer review process"
-  argument :authors, types[AuthorInput], "All authors"
-  argument :abstract, types.String, "Abstract (may include embedded HTML formatting tags)"
-  argument :journal, types.String, "Journal name"
-  argument :volume, types.String, "Journal volume number"
-  argument :issue, types.String, "Journal issue number"
-  argument :issueTitle, types.String, "Title of the issue"
-  argument :issueDate, types.String, "Date of the issue"
-  argument :issueDescription, types.String, "Description of the issue"
-  argument :issueCoverCaption, types.String, "Caption for the issue cover image"
-  argument :sectionHeader, types.String, "Section header"
-  argument :orderInSection, types.Int, "Order of article in section"
-  argument :issn, types.String, "Journal ISSN"
-  argument :publisher, types.String, "Publisher of the item (if any)"
-  argument :proceedings, types.String, "Proceedings within which item appears (if any)"
-  argument :isbn, types.String, "Book ISBN"
-  argument :customCitation, types.String, "Custom citation"
-  argument :contributors, types[ContributorInput], "Editors, advisors, etc. (if any)"
-  argument :units, !types[types.String], "The series/unit id(s) associated with this item"
-  argument :subjects, types[types.String], "Subject terms (unrestricted) applying to this item"
-  argument :keywords, types[types.String], "Keywords (unrestricted) applying to this item"
-  argument :disciplines, types[types.String], "Disciplines applying to this item"
-  argument :grants, types[GrantInput], "Funding grants linked to this item"
-  argument :language, types.String, "Language specification (ISO 639-2 code)"
-  argument :embargoExpires, DateType, "Embargo expiration date (if any)"
-  argument :rights, types.String, "License (none, or e.g. https://creativecommons.org/licenses/by-nc/4.0/)"
-  argument :fpage, types.String, "First page (within a larger work like a journal issue)"
-  argument :lpage, types.String, "Last page (within a larger work like a journal issue)"
-  argument :ucpmsPubType, types.String, "If publication originated from UCPMS, the type within that system"
-  argument :localIDs, types[LocalIDInput], "Local identifiers, e.g. DOI, PubMed ID, LBNL, etc."
-  argument :bookTitle, types.String, "Title of the book within which this item appears"
-  argument :pubRelation, PubRelationEnum, "Publication relationship of this item to eScholarship"
-  argument :dateSubmitted, types.String, "Date the article was submitted"
-  argument :dateAccepted, types.String, "Date the article was accepted"
-  argument :datePublished, types.String, "Date the article was published"
-  argument :dataAvailability, types.String, "Data availability statement"
-  argument :dataURL, types.String, "URL to data available in a public repository"
+  argument :id, ID, "Identifier of the item to update/create; omit to mint a new identifier"
+  argument :sourceName, String, "Source of data that will be deposited (eg. 'elements', 'ojs', etc.)"
+  argument :sourceID, String, "Identifier or other identifying information of data within the source system"
+  argument :sourceFeedLink, String, "Original feed data from the source (if any)", required: false
+  argument :sourceURL, String, "URL to the source of the deposit", required: false
+  argument :submitterEmail, String, "email address of person performing this submission"
+  argument :title, String, "Title of the item (may include embedded HTML formatting tags)"
+  argument :type, ItemTypeEnum, "Publication type; majority are ARTICLE"
+  argument :published, String, "Date the item was published"
+  argument :isPeerReviewed, Boolean, "Whether the work has undergone a peer review process"
+  argument :authors, [AuthorInput], "All authors", required: false
+  argument :abstract, String, "Abstract (may include embedded HTML formatting tags)", required: false
+  argument :journal, String, "Journal name", required: false
+  argument :volume, String, "Journal volume number", required: false
+  argument :issue, String, "Journal issue number", required: false
+  argument :issueTitle, String, "Title of the issue", required: false
+  argument :issueDate, String, "Date of the issue", required: false
+  argument :issueDescription, String, "Description of the issue", required: false
+  argument :issueCoverCaption, String, "Caption for the issue cover image", required: false
+  argument :sectionHeader, String, "Section header", required: false
+  argument :orderInSection, Int, "Order of article in section", required: false
+  argument :issn, String, "Journal ISSN", required: false
+  argument :publisher, String, "Publisher of the item (if any)", required: false
+  argument :proceedings, String, "Proceedings within which item appears (if any)", required: false
+  argument :isbn, String, "Book ISBN", required: false
+  argument :customCitation, String, "Custom citation", required: false
+  argument :contributors, [ContributorInput], "Editors, advisors, etc. (if any)", required: false
+  argument :units, ![String], "The series/unit id(s) associated with this item"
+  argument :subjects, [String], "Subject terms (unrestricted) applying to this item", required: false
+  argument :keywords, [String], "Keywords (unrestricted) applying to this item", required: false
+  argument :disciplines, [String], "Disciplines applying to this item", required: false
+  argument :grants, [GrantInput], "Funding grants linked to this item", required: false
+  argument :language, String, "Language specification (ISO 639-2 code)", required: false
+  argument :embargoExpires, DateType, "Embargo expiration date (if any)", required: false
+  argument :rights, String, "License (none, or e.g. https://creativecommons.org/licenses/by-nc/4.0/)", required: false
+  argument :fpage, String, "First page (within a larger work like a journal issue)", required: false
+  argument :lpage, String, "Last page (within a larger work like a journal issue)", required: false
+  argument :ucpmsPubType, String, "If publication originated from UCPMS, the type within that system", required: false
+  argument :localIDs, [LocalIDInput], "Local identifiers, e.g. DOI, PubMed ID, LBNL, etc.", required: false
+  argument :bookTitle, String, "Title of the book within which this item appears", required: false
+  argument :pubRelation, PubRelationEnum, "Publication relationship of this item to eScholarship", required: false
+  argument :dateSubmitted, String, "Date the article was submitted", required: false
+  argument :dateAccepted, String, "Date the article was accepted", required: false
+  argument :datePublished, String, "Date the article was published", required: false
+  argument :dataAvailability, String, "Data availability statement", required: false
+  argument :dataURL, String, "URL to data available in a public repository", required: false
 end
 
-ReplaceMetadataOutput = GraphQL::ObjectType.define do
-  name "ReplaceMetadataOutput"
+class ReplaceMetadataOutput < GraphQL::Schema::Object
+  graphql_name "ReplaceMetadataOutput"
   description "Output from the replaceMetadata mutation"
-  field :message, !types.String, "Message describing what was done" do
+  field :message, String, "Message describing what was done", null: false do
     resolve -> (obj, args, ctx) { return obj[:message] }
   end
 end
 
 ###################################################################################################
-ReplaceFilesInput = GraphQL::InputObjectType.define do
-  name "ReplaceFilesInput"
+class ReplaceFilesInput < GraphQL::Schema::InputObject
+  graphql_name "ReplaceFilesInput"
   description "Information used to replace all files (and external links) of an existing item"
 
-  argument :id, !types.ID, "Identifier of the item to update"
-  argument :contentLink, types.String, "Link from which to fetch the content file (must be .pdf, .doc, or .docx)"
-  argument :contentVersion, FileVersionEnum, "Version of the content file (e.g. AUTHOR_VERSION)"
-  argument :contentFileName, types.String, "Original name of the content file"
-  argument :suppFiles, types[SuppFileInput], "Supplemental material (if any)"
-  argument :imgFiles, types[HTMLSuppFileInput], "Image files required for HTML display"
-  argument :cssFiles, types[HTMLSuppFileInput], "CSS files required for HTML display"
-  argument :externalLinks, types[types.String], "Published web location(s) external to eScholarshp"
+  argument :id, ID, "Identifier of the item to update"
+  argument :contentLink, String, "Link from which to fetch the content file (must be .pdf, .doc, or .docx)", required: false
+  argument :contentVersion, FileVersionEnum, "Version of the content file (e.g. AUTHOR_VERSION)", required: false
+  argument :contentFileName, String, "Original name of the content file", required: false
+  argument :suppFiles, [SuppFileInput], "Supplemental material (if any)", required: false
+  argument :imgFiles, [HTMLSuppFileInput], "Image files required for HTML display", required: false
+  argument :cssFiles, [HTMLSuppFileInput], "CSS files required for HTML display", required: false
+  argument :externalLinks, [String], "Published web location(s) external to eScholarshp", required: false
 end
 
-ReplaceFilesOutput = GraphQL::ObjectType.define do
-  name "ReplaceFilesOutput"
+class ReplaceFilesOutput < GraphQL::Schema::Object
+  graphql_name "ReplaceFilesOutput"
   description "Output from the replaceFiles mutation"
-  field :message, !types.String, "Message describing what was done" do
+  field :message, String, "Message describing what was done", null: false do
     resolve -> (obj, args, ctx) { return obj[:message] }
   end
 end
 
 ###################################################################################################
-UpdateRightsInput = GraphQL::InputObjectType.define do
-  name "UpdateRightsInput"
+class UpdateRightsInput < GraphQL::Schema::InputObject
+  graphql_name "UpdateRightsInput"
   description "Input to the CC License update"
 
-  argument :id, !types.ID, "Identifier of the item to update"
-  argument :rights, !types.String, "License (none, or e.g. https://creativecommons.org/licenses/by-nc/4.0/)"
+  argument :id, ID, "Identifier of the item to update"
+  argument :rights, String, "License (none, or e.g. https://creativecommons.org/licenses/by-nc/4.0/)"
 end
 
-UpdateRightsOutput = GraphQL::ObjectType.define do
-  name "UpdateRightsOutput"
+class UpdateRightsOutput < GraphQL::Schema::Object
+  graphql_name "UpdateRightsOutput"
   description "Output from updateRights mutation"
-  field :message, !types.String, "Message describing the outcome" do
+  field :message, String, "Message describing the outcome", null: false do
     resolve -> (obj, args, ctx) { return obj[:message] }
   end
 end
 
 ###################################################################################################
-WithdrawItemInput = GraphQL::InputObjectType.define do
-  name "WithdrawItemInput"
+class WithdrawItemInput < GraphQL::Schema::InputObject
+  graphql_name "WithdrawItemInput"
   description "Input to the withdrawItem mutation"
 
-  argument :id, !types.ID, "Identifier of the item to withdraw"
-  argument :publicMessage, !types.String, "Public message to display in place of the withdrawn item"
-  argument :internalComment, types.String, "(Optional) Non-public administrative comment (e.g. ticket URL)"
-  argument :redirectTo, types.ID, "(Optional) Identifier of the item to redirect to"
+  argument :id, ID, "Identifier of the item to withdraw"
+  argument :publicMessage, String, "Public message to display in place of the withdrawn item"
+  argument :internalComment, String, "(Optional) Non-public administrative comment (e.g. ticket URL)", required: false
+  argument :redirectTo, ID, "(Optional) Identifier of the item to redirect to", required: false
 end
 
-WithdrawItemOutput = GraphQL::ObjectType.define do
-  name "WithdrawItemOutput"
+class WithdrawItemOutput < GraphQL::Schema::Object
+  graphql_name "WithdrawItemOutput"
   description "Output from the withdrawItem mutation"
-  field :message, !types.String, "Message describing the outcome" do
+  field :message, String, "Message describing the outcome", null: false do
     resolve -> (obj, args, ctx) { return obj[:message] }
   end
 end
 
 ###################################################################################################
-UpdateIssueInput = GraphQL::InputObjectType.define do
-  name "UpdateIssueInput"
+class UpdateIssueInput < GraphQL::Schema::InputObject
+  graphql_name "UpdateIssueInput"
   description "input to the update issue mutation"
 
-  argument :journal, !types.String, "Journal id"
-  argument :issue, !types.Int, "Issue number"
-  argument :volume, !types.Int, "Volume number"
-  argument :coverImageURL, !types.String, "Publically available link to the cover image"
+  argument :journal, String, "Journal id"
+  argument :issue, Int, "Issue number"
+  argument :volume, Int, "Volume number"
+  argument :coverImageURL, String, "Publically available link to the cover image"
   #argument :numbering, !types.Int, "0 = issue, volue, 1 = issue only, 2 = volume only"
 end
 
-UpdateIssueOutput = GraphQL::ObjectType.define do
-  name "UpdateIssueOutput"
+class UpdateIssueOutput < GraphQL::Schema::Object
+  graphql_name "UpdateIssueOutput"
   description "Output from the updateIssue mutation"
-  field :message, !types.String, "Message describing the outcome" do
+  field :message, String, "Message describing the outcome", null: false do
     resolve -> (obj, args, ctx) { return obj[:message] }
   end
 end
 
 ###################################################################################################
-SubmitMutationType = GraphQL::ObjectType.define do
-  name "SubmitMutation"
+class SubmitMutationType < GraphQL::Schema::Object
+  graphql_name "SubmitMutation"
   description "The eScholarship submission API"
 
-  field :mintProvisionalID, !MintProvisionalIDOutput do
+  field :mintProvisionalID, MintProvisionalIDOutput, null: false do
     description "Create a provisional identifier. Only use this if you really need an ID prior to calling depositItem."
     argument :input, !MintProvisionalIDInput, "Source name and source id that will be eventually deposited"
     resolve -> (obj, args, ctx) {
@@ -727,7 +727,7 @@ SubmitMutationType = GraphQL::ObjectType.define do
     }
   end
 
-  field :depositItem, !DepositItemOutput, "Create (or replace) an item with all its data" do
+  field :depositItem, DepositItemOutput, "Create (or replace) an item with all its data", null: false do
     argument :input, !DepositItemInput
     resolve -> (obj, args, ctx) {
       Thread.current[:privileged] or halt(403)
@@ -735,7 +735,7 @@ SubmitMutationType = GraphQL::ObjectType.define do
     }
   end
 
-  field :replaceMetadata, !ReplaceMetadataOutput, "Replace just the metadata of an existing item" do
+  field :replaceMetadata, ReplaceMetadataOutput, "Replace just the metadata of an existing item", null: false do
     argument :input, !ReplaceMetadataInput
     resolve -> (obj, args, ctx) {
       Thread.current[:privileged] or halt(403)
@@ -743,7 +743,7 @@ SubmitMutationType = GraphQL::ObjectType.define do
     }
   end
 
-  field :updateRights, !UpdateRightsOutput, "Update the CC License of an eSchol item" do
+  field :updateRights, UpdateRightsOutput, "Update the CC License of an eSchol item", null: false do
     argument :input, !UpdateRightsInput
     resolve -> (obj, args, ctx) {
       Thread.current[:privileged] or halt(403)
@@ -751,7 +751,7 @@ SubmitMutationType = GraphQL::ObjectType.define do
     }
   end
 
-  field :replaceFiles, !ReplaceFilesOutput, "Replace just the files (and external links) of an existing item" do
+  field :replaceFiles, ReplaceFilesOutput, "Replace just the files (and external links) of an existing item", null: false do
     argument :input, !ReplaceFilesInput
     resolve -> (obj, args, ctx) {
       Thread.current[:privileged] or halt(403)
@@ -759,7 +759,7 @@ SubmitMutationType = GraphQL::ObjectType.define do
     }
   end
 
-  field :withdrawItem, !WithdrawItemOutput, "Permanently withdraw, and optionally redirect, an existing item" do
+  field :withdrawItem, WithdrawItemOutput, "Permanently withdraw, and optionally redirect, an existing item", null: false do
     argument :input, !WithdrawItemInput
     resolve -> (obj, args, ctx) {
       Thread.current[:privileged] or halt(403)
@@ -767,7 +767,7 @@ SubmitMutationType = GraphQL::ObjectType.define do
     }
   end
 
-  field :updateIssue, !UpdateIssueOutput, "Update issue properties" do
+  field :updateIssue, UpdateIssueOutput, "Update issue properties", null: false do
     argument :input, !UpdateIssueInput
     resolve -> (obj, args, ctx) {
       Thread.current[:privileged] or halt(403)
