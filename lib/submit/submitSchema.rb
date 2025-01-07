@@ -413,7 +413,8 @@ end
 class MintProvisionalIDOutput < GraphQL::Schema::Object
   graphql_name "MintProvisionalIDOutput"
   description "Output from the mintProvisionalID mutation"
-  field :id, ID, "The minted item identifier", null: false do
+  field :id, ID, "The minted item identifier", null: false
+  def id
     resolve -> (obj, args, ctx) { obj[:id] }
   end
 end
@@ -565,10 +566,12 @@ end
 class DepositItemOutput < GraphQL::Schema::Object
   graphql_name "DepositItemOutput"
   description "Output from the depositItem mutation"
-  field :id, ID, "The (possibly new) item identifier", null: false do
+  field :id, ID, "The (possibly new) item identifier", null: false
+  def id
     resolve -> (obj, args, ctx) { return obj[:id] }
   end
-  field :message, String, "Message describing what was done", null: false do
+  field :message, String, "Message describing what was done", null: false
+  def message
     resolve -> (obj, args, ctx) { return obj[:message] }
   end
 end
@@ -629,7 +632,8 @@ end
 class ReplaceMetadataOutput < GraphQL::Schema::Object
   graphql_name "ReplaceMetadataOutput"
   description "Output from the replaceMetadata mutation"
-  field :message, String, "Message describing what was done", null: false do
+  field :message, String, "Message describing what was done", null: false
+  def message
     resolve -> (obj, args, ctx) { return obj[:message] }
   end
 end
@@ -652,7 +656,8 @@ end
 class ReplaceFilesOutput < GraphQL::Schema::Object
   graphql_name "ReplaceFilesOutput"
   description "Output from the replaceFiles mutation"
-  field :message, String, "Message describing what was done", null: false do
+  field :message, String, "Message describing what was done", null: false
+  def message
     resolve -> (obj, args, ctx) { return obj[:message] }
   end
 end
@@ -669,7 +674,8 @@ end
 class UpdateRightsOutput < GraphQL::Schema::Object
   graphql_name "UpdateRightsOutput"
   description "Output from updateRights mutation"
-  field :message, String, "Message describing the outcome", null: false do
+  field :message, String, "Message describing the outcome", null: false
+  def message
     resolve -> (obj, args, ctx) { return obj[:message] }
   end
 end
@@ -688,7 +694,8 @@ end
 class WithdrawItemOutput < GraphQL::Schema::Object
   graphql_name "WithdrawItemOutput"
   description "Output from the withdrawItem mutation"
-  field :message, String, "Message describing the outcome", null: false do
+  field :message, String, "Message describing the outcome", null: false
+  def message
     resolve -> (obj, args, ctx) { return obj[:message] }
   end
 end
@@ -708,7 +715,8 @@ end
 class UpdateIssueOutput < GraphQL::Schema::Object
   graphql_name "UpdateIssueOutput"
   description "Output from the updateIssue mutation"
-  field :message, String, "Message describing the outcome", null: false do
+  field :message, String, "Message describing the outcome", null: false
+  def message
     resolve -> (obj, args, ctx) { return obj[:message] }
   end
 end
@@ -718,7 +726,8 @@ class SubmitMutationType < GraphQL::Schema::Object
   graphql_name "SubmitMutation"
   description "The eScholarship submission API"
 
-  field :mintProvisionalID, MintProvisionalIDOutput, null: false do
+  field :mintProvisionalID, MintProvisionalIDOutput, null: false
+  def mintProvisionalID
     description "Create a provisional identifier. Only use this if you really need an ID prior to calling depositItem."
     argument :input, !MintProvisionalIDInput, "Source name and source id that will be eventually deposited"
     resolve -> (obj, args, ctx) {
@@ -727,7 +736,8 @@ class SubmitMutationType < GraphQL::Schema::Object
     }
   end
 
-  field :depositItem, DepositItemOutput, "Create (or replace) an item with all its data", null: false do
+  field :depositItem, DepositItemOutput, "Create (or replace) an item with all its data", null: false
+  def depositItem
     argument :input, !DepositItemInput
     resolve -> (obj, args, ctx) {
       Thread.current[:privileged] or halt(403)
@@ -735,7 +745,8 @@ class SubmitMutationType < GraphQL::Schema::Object
     }
   end
 
-  field :replaceMetadata, ReplaceMetadataOutput, "Replace just the metadata of an existing item", null: false do
+  field :replaceMetadata, ReplaceMetadataOutput, "Replace just the metadata of an existing item", null: false
+  def replaceMetadata
     argument :input, !ReplaceMetadataInput
     resolve -> (obj, args, ctx) {
       Thread.current[:privileged] or halt(403)
@@ -743,7 +754,8 @@ class SubmitMutationType < GraphQL::Schema::Object
     }
   end
 
-  field :updateRights, UpdateRightsOutput, "Update the CC License of an eSchol item", null: false do
+  field :updateRights, UpdateRightsOutput, "Update the CC License of an eSchol item", null: false
+  def updateRights
     argument :input, !UpdateRightsInput
     resolve -> (obj, args, ctx) {
       Thread.current[:privileged] or halt(403)
@@ -751,7 +763,8 @@ class SubmitMutationType < GraphQL::Schema::Object
     }
   end
 
-  field :replaceFiles, ReplaceFilesOutput, "Replace just the files (and external links) of an existing item", null: false do
+  field :replaceFiles, ReplaceFilesOutput, "Replace just the files (and external links) of an existing item", null: false
+  def replaceFiles
     argument :input, !ReplaceFilesInput
     resolve -> (obj, args, ctx) {
       Thread.current[:privileged] or halt(403)
@@ -759,7 +772,8 @@ class SubmitMutationType < GraphQL::Schema::Object
     }
   end
 
-  field :withdrawItem, WithdrawItemOutput, "Permanently withdraw, and optionally redirect, an existing item", null: false do
+  field :withdrawItem, WithdrawItemOutput, "Permanently withdraw, and optionally redirect, an existing item", null: false
+  def withdrawItem
     argument :input, !WithdrawItemInput
     resolve -> (obj, args, ctx) {
       Thread.current[:privileged] or halt(403)
@@ -767,7 +781,8 @@ class SubmitMutationType < GraphQL::Schema::Object
     }
   end
 
-  field :updateIssue, UpdateIssueOutput, "Update issue properties", null: false do
+  field :updateIssue, UpdateIssueOutput, "Update issue properties", null: false
+  def updateIssue
     argument :input, !UpdateIssueInput
     resolve -> (obj, args, ctx) {
       Thread.current[:privileged] or halt(403)

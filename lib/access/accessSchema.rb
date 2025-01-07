@@ -103,11 +103,13 @@ class AuthorIDType < GraphQL::Schema::Object
   graphql_name "AuthorID"
   description "Author identifier, e.g. escholarship, ORCID, other."
 
-  field :id, String, "The identifier string" do
+  field :id, String, "The identifier string"
+  def id
     resolve -> (obj, args, ctx) { obj['id'] }
   end
 
-  field :scheme, AuthorIDSchemeEnum, "The scheme under which the identifier was minted", null: false do
+  field :scheme, AuthorIDSchemeEnum, "The scheme under which the identifier was minted", null: false
+  def scheme
     resolve -> (obj, args, ctx) {
       case obj['type']
         when 'ARK';   "ARK"
@@ -117,7 +119,8 @@ class AuthorIDType < GraphQL::Schema::Object
     }
   end
 
-  field :subScheme, String, "If scheme is OTHER_ID, this will be more specific" do
+  field :subScheme, String, "If scheme is OTHER_ID, this will be more specific"
+  def subScheme
     resolve -> (obj, args, ctx) {
       case obj['type']
         when 'ARK'; nil
@@ -132,26 +135,33 @@ end
 class NamePartsType < GraphQL::Schema::Object
   graphql_name "NameParts"
   description "Individual access to parts of the name, generally only used in special cases"
-  field :name, String, "Combined name parts; usually 'lname, fname'", null: false do
+  field :name, String, "Combined name parts; usually 'lname, fname'", null: false
+  def name
     resolve -> (obj, args, ctx) { obj['name'] }
   end
 
-  field :fname, String, "First name / given name" do
+  field :fname, String, "First name / given name"
+  def fname
     resolve -> (obj, args, ctx) { obj['fname'] }
   end
-  field :lname, String, "Last name / surname" do
+  field :lname, String, "Last name / surname"
+  def lname
     resolve -> (obj, args, ctx) { obj['lname'] }
   end
-  field :mname, String, "Middle name" do
+  field :mname, String, "Middle name"
+  def mname
     resolve -> (obj, args, ctx) { obj['mname'] }
   end
-  field :suffix, String, "Suffix (e.g. Ph.D)" do
+  field :suffix, String, "Suffix (e.g. Ph.D)"
+  def suffix
     resolve -> (obj, args, ctx) { obj['suffix'] }
   end
-  field :institution, String, "Institutional affiliation" do
+  field :institution, String, "Institutional affiliation"
+  def institution
     resolve -> (obj, args, ctx) { obj['institution'] }
   end
-  field :organization, String, "Instead of lname/fname if this is a group/corp" do
+  field :organization, String, "Instead of lname/fname if this is a group/corp"
+  def organization
     resolve -> (obj, args, ctx) { obj['organization'] }
   end
 end
@@ -160,19 +170,23 @@ class AuthorType < GraphQL::Schema::Object
   graphql_name "Author"
   description "A single author (can be a person or organization)"
 
-  field :name, String, "Combined name parts; usually 'lname, fname'", null: false do
+  field :name, String, "Combined name parts; usually 'lname, fname'", null: false
+  def name
     resolve -> (obj, args, ctx) { JSON.parse(obj.attrs)['name'] }
   end
 
-  field :nameParts, NamePartsType, "Individual name parts for special needs" do
+  field :nameParts, NamePartsType, "Individual name parts for special needs"
+  def nameParts
     resolve -> (obj, args, ctx) { JSON.parse(obj.attrs) }
   end
 
-  field :id, ID, "eSchol person ID (many authors have none)" do
+  field :id, ID, "eSchol person ID (many authors have none)"
+  def id
     resolve -> (obj, args, ctx) { obj.person_id }
   end
 
-  field :variants, [NamePartsType], "All name variants", null: false do
+  field :variants, [NamePartsType], "All name variants", null: false
+  def variants
     resolve -> (obj, args, ctx) {
       if obj.person_id
         variants = Set.new
@@ -210,20 +224,23 @@ class AuthorType < GraphQL::Schema::Object
   #  }
   #end
 
-  field :email, String, "Email (restricted field)" do
+  field :email, String, "Email (restricted field)"
+  def email
     resolve -> (obj, args, ctx) {
       Thread.current[:privileged] or return GraphQL::ExecutionError.new("'email' field is restricted")
       JSON.parse(obj.attrs)['email']
     }
   end
 
-  field :orcid, String, "ORCID identifier" do
+  field :orcid, String, "ORCID identifier"
+  def orcid
     resolve -> (obj, args, ctx) {
       JSON.parse(obj.attrs)['ORCID_id']
     }
   end
 
-  field :ids, [AuthorIDType], "Unified author identifiers, e.g. eschol ARK, ORCID, OTHER." do
+  field :ids, [AuthorIDType], "Unified author identifiers, e.g. eschol ARK, ORCID, OTHER."
+  def ids
     resolve -> (obj, args, ctx) {
       attrs = JSON.parse(obj.attrs)
       ids = [obj.person_id ? {'type' => 'ARK', 'id' => obj.person_id} : nil] + attrs.sort.each.map { |type, id|
@@ -239,7 +256,8 @@ class AuthorsType < GraphQL::Schema::Object
   graphql_name "Authors"
   description "A list of authors, with paging capability because some items have thousands"
   field :total, Int, "Approximate total authors on all pages", null: false
-  field :nodes, [AuthorType], "Array of the authors on this page", null: false do
+  field :nodes, [AuthorType], "Array of the authors on this page", null: false
+  def nodes
     resolve -> (obj, args, ctx) {
       obj.nodes.then { |nodes|
         nodes.each { |node| node['itemID'] = obj.itemID }
@@ -256,19 +274,23 @@ class ContributorType < GraphQL::Schema::Object
   graphql_name "Contributor"
   description "A single author (can be a person or organization)"
 
-  field :name, String, "Combined name parts; usually 'lname, fname'", null: false do
+  field :name, String, "Combined name parts; usually 'lname, fname'", null: false
+  def name
     resolve -> (obj, args, ctx) { JSON.parse(obj.attrs)['name'] }
   end
 
-  field :role, RoleEnum, "Role in which this person or org contributed", null:false do
+  field :role, RoleEnum, "Role in which this person or org contributed", null:false
+  def role
     resolve -> (obj, args, ctx) { obj.role.upcase }
   end
 
-  field :nameParts, NamePartsType, "Individual name parts for special needs" do
+  field :nameParts, NamePartsType, "Individual name parts for special needs"
+  def nameParts
     resolve -> (obj, args, ctx) { JSON.parse(obj.attrs) }
   end
 
-  field :email, String, "Email (restricted field)" do
+  field :email, String, "Email (restricted field)"
+  def email
     resolve -> (obj, args, ctx) {
       Thread.current[:privileged] or return GraphQL::ExecutionError.new("'email' field is restricted")
       JSON.parse(obj.attrs)['email']
@@ -317,13 +339,15 @@ class UnitType < GraphQL::Schema::Object
 
   field :name, String, "Human-readable name of the unit", null: false
 
-  field :type, UnitTypeEnum, "Type of unit, e.g. ORU, SERIES, JOURNAL", null: false do
+  field :type, UnitTypeEnum, "Type of unit, e.g. ORU, SERIES, JOURNAL", null: false
+  def type
     resolve -> (obj, args, ctx) {
       obj.type.upcase
     }
   end
 
-  field :issn, String, "ISSN, applies to units of type=JOURNAL only" do
+  field :issn, String, "ISSN, applies to units of type=JOURNAL only"
+  def issn
     resolve -> (obj, args, ctx) {
       (obj.attrs ? JSON.parse(obj.attrs) : {})['issn']
     }
@@ -336,13 +360,15 @@ class UnitType < GraphQL::Schema::Object
   #  resolve -> (obj, args, ctx) { ItemsData.new(args, ctx, unitID: obj.id) }
   #end
 
-  field :ucpmsId, Int, "Elements ID for the unit" do
+  field :ucpmsId, Int, "Elements ID for the unit"
+  def ucpmsId
     resolve -> (obj, args, ctx) {
       (obj.attrs ? JSON.parse(obj.attrs) : {})['elements_id']
     }
   end
 
-  field :children, [UnitType], "Direct hierarchical children (i.e. sub-units)" do
+  field :children, [UnitType], "Direct hierarchical children (i.e. sub-units)"
+  def children
     resolve -> (obj, args, ctx) {
       query = UnitHier.where(is_direct: true).
                        order(:ordering).
@@ -372,7 +398,8 @@ class UnitType < GraphQL::Schema::Object
 #    }
 #  end
 
-  field :parents, [UnitType], "Direct hierarchical parent(s) (i.e. owning units)" do
+  field :parents, [UnitType], "Direct hierarchical parent(s) (i.e. owning units)"
+  def parents
     resolve -> (obj, args, ctx) {
       query = UnitHier.where(is_direct: true).order(:ordering).select(:ancestor_unit, :unit_id)
       GroupLoader.for(query, :unit_id).load(obj.id).then { |unitHiers|
@@ -381,7 +408,8 @@ class UnitType < GraphQL::Schema::Object
     }
   end
 
-  field :issues, [IssueType], "All journal issues published by this unit (only applies if type=JOURNAL)" do
+  field :issues, [IssueType], "All journal issues published by this unit (only applies if type=JOURNAL)"
+  def issues
     resolve -> (obj, args, ctx) {
       query = Issue.order(:published, :volume, :issue)
       GroupLoader.for(query, :unit_id).load(obj.id)
@@ -411,16 +439,20 @@ end
 class SuppFileType < GraphQL::Schema::Object
   graphql_name "SuppFile"
   description "A file containing supplemental material for an item"
-  field :file, String, "Name of the file", null: false do
+  field :file, String, "Name of the file", null: false
+  def file
     resolve -> (obj, args, ctx) { obj['file'] }
   end
-  field :contentType, String, "Content MIME type of file, if known" do
+  field :contentType, String, "Content MIME type of file, if known"
+  def contentType
     resolve -> (obj, args, ctx) { obj['mimeType'] }
   end
-  field :size, GraphQL::Types::BigInt, "Size of the file in bytes" do
+  field :size, GraphQL::Types::BigInt, "Size of the file in bytes"
+  def size
     resolve -> (obj, args, ctx) { obj['size'] }
   end
-  field :downloadLink, String, "URL to download the file", null: false do
+  field :downloadLink, String, "URL to download the file", null: false
+  def downloadLink
     resolve -> (obj, args, ctx) {
       content_prefix = ENV['CLOUDFRONT_PUBLIC_URL'] || Thread.current[:baseURL]
       "#{content_prefix}/content/#{obj[:item_id]}/supp/#{obj['file']}"
@@ -434,11 +466,13 @@ class LocalIDType < GraphQL::Schema::Object
   graphql_name "LocalID"
   description "Local item identifier, e.g. DOI, PubMed ID, LBNL ID, etc."
 
-  field :id, String, "The identifier string", null: false do
+  field :id, String, "The identifier string", null: false
+  def id
     resolve -> (obj, args, ctx) { obj['id'] }
   end
 
-  field :scheme, ItemIDSchemeEnum, "The scheme under which the identifier was minted", null: false do
+  field :scheme, ItemIDSchemeEnum, "The scheme under which the identifier was minted", null: false
+  def scheme
     resolve -> (obj, args, ctx) {
       case obj['type']
         when 'merritt';      "ARK"
@@ -450,7 +484,8 @@ class LocalIDType < GraphQL::Schema::Object
     }
   end
 
-  field :subScheme, String, "If scheme is OTHER_ID, this will be more specific" do
+  field :subScheme, String, "If scheme is OTHER_ID, this will be more specific"
+  def subScheme
     resolve -> (obj, args, ctx) {
       case obj['type']
         when 'merritt';      "Merritt"
@@ -469,45 +504,55 @@ class ItemType < GraphQL::Schema::Object
   graphql_name "Item"
   description "An item"
 
-  field :id, ID, "eScholarship ARK identifier", null: false do
+  field :id, ID, "eScholarship ARK identifier", null: false
+  def id
     resolve -> (obj, args, ctx)  { "ark:/13030/#{obj.id}" } 
   end
 
-  field :title, String, "Title of the item (may include embedded HTML formatting tags)", null: false do
+  field :title, String, "Title of the item (may include embedded HTML formatting tags)", null: false
+  def title
     resolve -> (obj, args, ctx) { obj.title || "" }  # very few null titles; just call it empty string
   end
 
-  field :status, ItemStatusEnum, "Publication status; usually PUBLISHED", null: false do
+  field :status, ItemStatusEnum, "Publication status; usually PUBLISHED", null: false
+  def status
     resolve -> (obj, args, ctx) { obj.status.sub("withdrawn-junk", "withdrawn").upcase }
   end
 
-  field :type, ItemTypeEnum, "Publication type; majority are ARTICLE", null: false do
+  field :type, ItemTypeEnum, "Publication type; majority are ARTICLE", null: false 
+  def type
     resolve -> (obj, args, ctx) {
       obj.genre == "dissertation" ? "ETD" : obj.genre.upcase.gsub('-','_')
     }
   end
 
-  field :published, String, "Date the item was published", null: false do
+  field :published, String, "Date the item was published", null: false
+  def published
     resolve -> (obj, args, ctx) { obj.published }
   end
 
-  field :added, DateType, "Date the item was added to eScholarship", null: false do
+  field :added, DateType, "Date the item was added to eScholarship", null: false
+  def added
     resolve -> (obj, args, ctx) { obj.added }
   end
 
-  field :updated, DateTimeType, "Date and time the item was last updated on eScholarship", null: false do
+  field :updated, DateTimeType, "Date and time the item was last updated on eScholarship", null: false
+  def upddated
     resolve -> (obj, args, ctx) { obj.updated }
   end
 
-  field :permalink, String, "Permanent link to the item on eScholarship", null: false do
+  field :permalink, String, "Permanent link to the item on eScholarship", null: false 
+  def permalink
     resolve -> (obj, args, ctx) { "#{ENV['ESCHOL_FRONTEND_URL']}/uc/item/#{obj.id.sub(/^qt/,'')}" }
   end
 
-  field :contentType, String, "Main content MIME type (e.g. application/pdf)" do
+  field :contentType, String, "Main content MIME type (e.g. application/pdf)"
+  def contentType
     resolve -> (obj, args, ctx) { obj.content_type }
   end
 
-  field :contentLink, String, "Download link for PDF/content file (if applicable)" do
+  field :contentLink, String, "Download link for PDF/content file (if applicable)"
+  def contentLink
     resolve -> (obj, args, ctx) {
       content_prefix = ENV['CLOUDFRONT_PUBLIC_URL'] || Thread.current[:baseURL]
       obj.status == "published" && obj.content_type == "application/pdf" ?
@@ -515,13 +560,15 @@ class ItemType < GraphQL::Schema::Object
     }
   end
 
-  field :contentSize, Int, "Size of PDF/content file in bytes (if applicable)" do
+  field :contentSize, Int, "Size of PDF/content file in bytes (if applicable)"
+  def contentSize
     resolve -> (obj, args, ctx) {
       (obj.attrs ? JSON.parse(obj.attrs) : {})['content_length']
     }
   end
 
-  field :authors, AuthorsType, "All authors (can be long)" do
+  field :authors, AuthorsType, "All authors (can be long)"
+  def authors
     argument :first, types.Int, default_value: 100, prepare: ->(val, ctx) {
       (val.nil? || (val >= 1 && val <= 500)) or return GraphQL::ExecutionError.new("'first' must be in range 1..500")
       return val
@@ -535,14 +582,16 @@ class ItemType < GraphQL::Schema::Object
     }
   end
 
-  field :abstract, String, "Abstract (may include embedded HTML formatting tags)" do
+  field :abstract, String, "Abstract (may include embedded HTML formatting tags)"
+  def abstract
     resolve -> (obj, args, ctx) {
       field_name = is_withdrawn(obj) ? 'withdrawn_message' : 'abstract'
       (obj.attrs ? JSON.parse(obj.attrs) : {})[field_name]
     }
   end
 
-  field :journal, String, "Journal name" do
+  field :journal, String, "Journal name"
+  def journal
     resolve -> (obj, args, ctx) {
       if obj.section
         RecordLoader.for(Section).load(obj.section).then { |section|
@@ -558,7 +607,8 @@ class ItemType < GraphQL::Schema::Object
     }
   end
 
-  field :volume, String, "Journal volume number" do
+  field :volume, String, "Journal volume number"
+  def volume
     resolve -> (obj, args, ctx) {
       if obj.section
         RecordLoader.for(Section).load(obj.section).then { |section|
@@ -572,7 +622,8 @@ class ItemType < GraphQL::Schema::Object
     }
   end
 
-  field :issue, String, "Journal issue number" do
+  field :issue, String, "Journal issue number"
+  def issue
     resolve -> (obj, args, ctx) {
       if obj.section
         RecordLoader.for(Section).load(obj.section).then { |section|
@@ -586,7 +637,8 @@ class ItemType < GraphQL::Schema::Object
     }
   end
 
-  field :issn, String, "Journal ISSN" do
+  field :issn, String, "Journal ISSN"
+  def issn
     resolve -> (obj, args, ctx) {
       if obj.section
         RecordLoader.for(Section).load(obj.section).then { |section|
@@ -602,25 +654,29 @@ class ItemType < GraphQL::Schema::Object
     }
   end
 
-  field :publisher, String, "Publisher of the item (if any)" do
+  field :publisher, String, "Publisher of the item (if any)"
+  def publisher
     resolve -> (obj, args, ctx) {
       (obj.attrs ? JSON.parse(obj.attrs) : {})['publisher']
     }
   end
 
-  field :proceedings, String, "Proceedings within which item appears (if any)" do
+  field :proceedings, String, "Proceedings within which item appears (if any)"
+  def proceedings
     resolve -> (obj, args, ctx) {
       (obj.attrs ? JSON.parse(obj.attrs) : {})['proceedings']
     }
   end
 
-  field :isbn, String, "Book ISBN" do
+  field :isbn, String, "Book ISBN"
+  def isbn
     resolve -> (obj, args, ctx) {
       (obj.attrs ? JSON.parse(obj.attrs) : {})['isbn']
     }
   end
 
-  field :contributors, ContributorsType, "Editors, advisors, etc. (if any)" do
+  field :contributors, ContributorsType, "Editors, advisors, etc. (if any)" 
+  def contributors
     argument :first, types.Int, default_value: 100, prepare: ->(val, ctx) {
       (val.nil? || (val >= 1 && val <= 500)) or return GraphQL::ExecutionError.new("'first' must be in range 1..500")
       return val
@@ -634,7 +690,8 @@ class ItemType < GraphQL::Schema::Object
     }
   end
 
-  field :units, [UnitType], "The series/unit id(s) associated with this item" do
+  field :units, [UnitType], "The series/unit id(s) associated with this item"
+  def units
     resolve -> (obj, args, ctx) {
       query = UnitItem.where(is_direct: true).order(:item_id, :ordering_of_units).select(:item_id, :unit_id)
       GroupLoader.for(query, :item_id).load(obj.id).then { |unitItems|
@@ -643,7 +700,8 @@ class ItemType < GraphQL::Schema::Object
     }
   end
 
-  field :tags, [String], "Unified disciplines, keywords, grants, etc." do
+  field :tags, [String], "Unified disciplines, keywords, grants, etc."
+  def tags
     resolve -> (obj, args, ctx) {
       if is_withdrawn(obj)
         nil
@@ -660,13 +718,15 @@ class ItemType < GraphQL::Schema::Object
     }
   end
 
-  field :subjects, [String], "Subject terms (unrestricted) applying to this item" do
+  field :subjects, [String], "Subject terms (unrestricted) applying to this item"
+  def subjects
     resolve -> (obj, args, ctx) {
       (obj.attrs ? JSON.parse(obj.attrs) : {})['subjects']
     }
   end
 
-  field :keywords, [String], "Keywords (unrestricted) applying to this item" do
+  field :keywords, [String], "Keywords (unrestricted) applying to this item"
+  def keywords
     resolve -> (obj, args, ctx) {
       if is_withdrawn(obj)
         nil
@@ -676,50 +736,58 @@ class ItemType < GraphQL::Schema::Object
     }
   end
 
-  field :disciplines, [String], "Disciplines applying to this item" do
+  field :disciplines, [String], "Disciplines applying to this item"
+  def disciplines
     resolve -> (obj, args, ctx) {
       (obj.attrs ? JSON.parse(obj.attrs) : {})['disciplines']
     }
   end
 
-  field :grants, [String], "Funding grants linked to this item" do
+  field :grants, [String], "Funding grants linked to this item"
+  def grants
     resolve -> (obj, args, ctx) {
       grants = (obj.attrs ? JSON.parse(obj.attrs) : {})['grants']
       grants ? grants.map { |gr| gr['name'] } : nil
     }
   end
 
-  field :language, String, "Language specification (ISO 639-2 code)" do
+  field :language, String, "Language specification (ISO 639-2 code)"
+  def language
     resolve -> (obj, args, ctx) {
       (obj.attrs ? JSON.parse(obj.attrs) : {})['language']
     }
   end
 
-  field :embargoExpires, DateType, "Embargo expiration date (if status=EMBARGOED)" do
+  field :embargoExpires, DateType, "Embargo expiration date (if status=EMBARGOED)"
+  def embargoExpires
     resolve -> (obj, args, ctx) {
       (obj.attrs ? JSON.parse(obj.attrs) : {})['embargo_date']
     }
   end
 
-  field :rights, String, "License (none, or e.g. https://creativecommons.org/licenses/by-nc/4.0/)" do
+  field :rights, String, "License (none, or e.g. https://creativecommons.org/licenses/by-nc/4.0/)"
+  def rights
     resolve -> (obj, args, ctx) {
       obj.rights
     }
   end
 
-  field :fpage, String, "First page (within a larger work like a journal issue)" do
+  field :fpage, String, "First page (within a larger work like a journal issue)"
+  def fpage
     resolve -> (obj, args, ctx) {
       (obj.attrs ? JSON.parse(obj.attrs) : {}).dig('ext_journal', 'fpage')
     }
   end
 
-  field :lpage, String, "Last page (within a larger work like a journal issue)" do
+  field :lpage, String, "Last page (within a larger work like a journal issue)"
+  def lpage
     resolve -> (obj, args, ctx) {
       (obj.attrs ? JSON.parse(obj.attrs) : {}).dig('ext_journal', 'lpage')
     }
   end
 
-  field :pagination, String, "Combined first page - last page" do
+  field :pagination, String, "Combined first page - last page"
+  def pagination
     resolve -> (obj, args, ctx) {
       attrs = obj.attrs ? JSON.parse(obj.attrs) : {}
       fpage = attrs.dig('ext_journal', 'fpage')
@@ -728,7 +796,8 @@ class ItemType < GraphQL::Schema::Object
     }
   end
 
-  field :suppFiles, [SuppFileType], "Supplemental material (if any)" do
+  field :suppFiles, [SuppFileType], "Supplemental material (if any)"
+  def suppFiles
     resolve -> (obj, args, ctx) {
       supps = (obj.attrs ? JSON.parse(obj.attrs) : {})['supp_files']
       if supps and ! is_withdrawn(obj)
@@ -739,19 +808,22 @@ class ItemType < GraphQL::Schema::Object
     }
   end
 
-  field :source, String, "Source system within the eScholarship environment", null: false do
+  field :source, String, "Source system within the eScholarship environment", null: false
+  def source
     resolve -> (obj, args, ctx) {
       obj.source
     }
   end
 
-  field :ucpmsPubType, String, "If publication originated from UCPMS, the type within that system" do
+  field :ucpmsPubType, String, "If publication originated from UCPMS, the type within that system"
+  def ucpmsPubType
     resolve -> (obj, args, ctx) {
       (obj.attrs ? JSON.parse(obj.attrs) : {})['uc_pms_pub_type']
     }
   end
 
-  field :localIDs, [LocalIDType], "Local item identifiers, e.g. DOI, PubMed ID, LBNL, etc." do
+  field :localIDs, [LocalIDType], "Local item identifiers, e.g. DOI, PubMed ID, LBNL, etc."
+  def localIDs
     resolve -> (obj, args, ctx) {
       attrs = obj.attrs ? JSON.parse(obj.attrs) : {}
       ids = attrs['local_ids'] || []
@@ -760,31 +832,36 @@ class ItemType < GraphQL::Schema::Object
     }
   end
 
-  field :externalLinks, [String], "Published web location(s) external to eScholarshp" do
+  field :externalLinks, [String], "Published web location(s) external to eScholarshp" 
+  def externalLinks
     resolve -> (obj, args, ctx) {
       (obj.attrs ? JSON.parse(obj.attrs) : {})['pub_web_loc']
     }
   end
 
-  field :bookTitle, String, "Title of the book within which this item appears" do
+  field :bookTitle, String, "Title of the book within which this item appears"
+  def bookTitle
     resolve -> (obj, args, ctx) {
       (obj.attrs ? JSON.parse(obj.attrs) : {})['book_title']
     }
   end
 
-  field :nativeFileName, String, "Name of original (pre-PDF-conversion) file" do
+  field :nativeFileName, String, "Name of original (pre-PDF-conversion) file"
+  def nativeFileName
     resolve -> (obj, args, ctx) {
       (obj.attrs ? JSON.parse(obj.attrs) : {}).dig('native_file', 'name')
     }
   end
 
-  field :nativeFileSize, String, "Size of original (pre-PDF-conversion) file" do
+  field :nativeFileSize, String, "Size of original (pre-PDF-conversion) file"
+  def naticeFileSize
     resolve -> (obj, args, ctx) {
       (obj.attrs ? JSON.parse(obj.attrs) : {}).dig('native_file', 'size')
     }
   end
 
-  field :isPeerReviewed, Boolean, "Whether the work has undergone a peer review process" do
+  field :isPeerReviewed, Boolean, "Whether the work has undergone a peer review process"
+  def isPeerReviewed
     resolve -> (obj, args, ctx) {
       if is_withdrawn(obj)
         nil
@@ -800,15 +877,18 @@ class ItemsType < GraphQL::Schema::Object
   graphql_name "Items"
   description "A list of items, possibly very long, with paging capability"
 
-  field :total, Int, "Approximate total items on all pages", null: false do
+  field :total, Int, "Approximate total items on all pages", null: false
+  def total
     resolve -> (obj, args, ctx) { obj.total }
   end
 
-  field :nodes, [ItemType], "Array of the items on this page", null: false do
+  field :nodes, [ItemType], "Array of the items on this page", null: false
+  def nodes
     resolve -> (obj, args, ctx) { obj.nodes }
   end
 
-  field :more, String, "Opaque cursor string for next page" do
+  field :more, String, "Opaque cursor string for next page"
+  def mode
     resolve -> (obj, args, ctx) { obj.more }
   end
 end
@@ -1054,20 +1134,20 @@ end
 
 ###################################################################################################
 def defineItemsArgs
-  argument :first, types.Int, default_value: 100,
+  argument :first, Integer, default_value: 100,
     description: "Number of results to return (values 1..500 are valid)",
     prepare: ->(val, ctx) {
       (val.nil? || (val >= 1 && val <= 500)) or return GraphQL::ExecutionError.new("'first' must be in range 1..500")
       return val
     }
-  argument :more, types.String, description: %{Opaque string obtained from the `more` field of a prior result,
+  argument :more, String, description: %{Opaque string obtained from the `more` field of a prior result,
                                                and used to fetch the next set of nodes.
                                                Do not specify any other arguments with this one; the string already
                                                encodes the prior set of arguments.}.unindent
   argument :before, DateTimeType, description: "Return only items *before* this date/time (within the `order` ordering)"
   argument :after, DateTimeType, description: "Return only items *after* this date/time (within the `order` ordering)"
-  argument :include, types[ItemStatusEnum], description: "Include items w/ given status(es). Defaults to PUBLISHED only."
-  argument :tags, types[types.String], description: %{
+  argument :include, [ItemStatusEnum], description: "Include items w/ given status(es). Defaults to PUBLISHED only."
+  argument :tags, [String], description: %{
              Subset items with keyword, subject, discipline, grant, type, and/or source.
              E.g. 'tags: ["keyword=food"]' or 'tags: ["grant:USDOE"]'}.unindent
   argument :order, ItemOrderEnum, default_value: "ADDED_DESC",
@@ -1080,10 +1160,11 @@ class AccessQueryType < GraphQL::Schema::Object
   graphql_name "AccessQuery"
   description "The eScholarship access API"
 
-  field :item, ItemType, "Get item's info given its identifier" do
-    argument :id, !types.ID
+  field :item, ItemType, "Get item's info given its identifier" 
+  def item
+    argument :id, ID
     argument :scheme, ItemIDSchemeEnum
-    resolve -> (obj, args, ctx) {
+    resolve -> (obj, args, ctx){ 
       scheme = args["scheme"] || "ARK"
       id = args["id"]
       if scheme == "ARK" && id =~ %r{^ark:/13030/(qt\w{8})$}
@@ -1110,18 +1191,20 @@ class AccessQueryType < GraphQL::Schema::Object
       end
     }
   end
-
-  field :items, ItemsType, "Query a list of all items" do
+  field :items, ItemsType, "Query a list of all items"
+  def items
     defineItemsArgs
     resolve -> (obj, args, ctx) { ItemsData.new(args, ctx) }
   end
 
-  field :unit, UnitType, "Get a unit given its identifier" do
+  field :unit, UnitType, "Get a unit given its identifier"
+  def unit
     argument :id, !types.ID
     resolve -> (obj, args, ctx) { Unit[args["id"]] }
   end
 
-  field :unitsUCPMSList, [UnitType], "Returns the units matching a given list of UCPMS IDs" do
+  field :unitsUCPMSList, [UnitType], "Returns the units matching a given list of UCPMS IDs"
+  def unitUCPMSList
     argument :ucpmsIdList, !types[types.Int]
     resolve -> (obj, args, ctx) {
       ucpmsIdListString = args['ucpmsIdList'].join(", ")
@@ -1129,11 +1212,13 @@ class AccessQueryType < GraphQL::Schema::Object
     }
   end
 
-  field :rootUnit, UnitType, "The root of the unit hierarchy (eSchol itself)", null: false do
+  field :rootUnit, UnitType, "The root of the unit hierarchy (eSchol itself)", null: false
+  def rootUnit
     resolve -> (obj, args, ctx) { Unit["root"] }
   end
 
-  field :author, AuthorType, "Get an author by ID (scheme optional, defaults to eschol ARK), or email address" do
+  field :author, AuthorType, "Get an author by ID (scheme optional, defaults to eschol ARK), or email address"
+  def author
     argument :id, types.ID
     argument :scheme, AuthorIDSchemeEnum
     argument :subScheme, types.String
