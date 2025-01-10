@@ -64,6 +64,12 @@ end
 
 
 ###################################################################################################
+# Forward declare ItemsType
+class ItemsType < GraphQL::Schema::Object
+end
+class UnitsType < GraphQL::Schema::Object
+end
+###################################################################################################
 class ItemOrderEnum < GraphQL::Schema::Enum
   graphql_name "ItemOrder"
   description "Ordering for item list results"
@@ -210,27 +216,26 @@ class AuthorType < GraphQL::Schema::Object
     end
   end
   
-  # Circular dep
-  #field :items, ItemsType, "Query items by this author" do
-  #  defineItemsArgs
-  #  resolve -> (obj, args, ctx) {
-  #    attrs = obj.attrs ? JSON.parse(obj.attrs) : {}
-  #    idKey = obj[:idSchemeHint] || attrs.keys.find{ |key| key =~ /_id$/ }
-  #    puts("Scheme hint: #{obj[:idSchemeHint]}")
-  #    if obj.person_id && !obj[:idSchemeHint]
-  #      ItemsData.new(args, ctx, personID: obj.person_id)
-  #    elsif idKey
-  #      ItemsData.new(args, ctx,
-  #                    authorID: attrs[idKey],
-  #                    authorScheme: idKey == "ORCID_id" ? "ORCID" : "OTHER_ID",
-  #                    authorSubScheme: idKey == "ORCID_id" ? nil : idKey.sub(/_id$/, ''))
-  #    else
-  #      itemID = obj.values['itemID']
-  #      itemID or raise("internal error: must have itemID or person_id")
-  #      ItemsData.new(args, ctx, itemID: itemID)
-  #    end
-  #  }
-  #end
+  field :items, ItemsType, "Query items by this author" do
+    defineItemsArgs
+    def resolve(obj, args, ctx) 
+      attrs = obj.attrs ? JSON.parse(obj.attrs) : {}
+      idKey = obj[:idSchemeHint] || attrs.keys.find{ |key| key =~ /_id$/ }
+      puts("Scheme hint: #{obj[:idSchemeHint]}")
+      if obj.person_id && !obj[:idSchemeHint]
+        ItemsData.new(args, ctx, personID: obj.person_id)
+      elsif idKey
+        ItemsData.new(args, ctx,
+                      authorID: attrs[idKey],
+                      authorScheme: idKey == "ORCID_id" ? "ORCID" : "OTHER_ID",
+                      authorSubScheme: idKey == "ORCID_id" ? nil : idKey.sub(/_id$/, ''))
+      else
+        itemID = obj.values['itemID']
+        itemID or raise("internal error: must have itemID or person_id")
+        ItemsData.new(args, ctx, itemID: itemID)
+      end
+    end
+  end
 
   field :email, String, "Email (restricted field)" do
     def resolve(obj, args, ctx) 
@@ -358,11 +363,12 @@ class UnitType < GraphQL::Schema::Object
   end
 
 
-  # Circular dep
-  #field :items, ItemsType, "Query items in the unit (incl. children)" do
-  #  defineItemsArgs
-  #  resolve -> (obj, args, ctx) { ItemsData.new(args, ctx, unitID: obj.id) }
-  #end
+  field :items, ItemsType, "Query items in the unit (incl. children)" do
+    defineItemsArgs
+    def resolve(obj, args, ctx) 
+      ItemsData.new(args, ctx, unitID: obj.id) 
+    end
+  end
 
   field :ucpmsId, Int, "Elements ID for the unit" do
     def resolve(obj, args, ctx) 
@@ -382,23 +388,22 @@ class UnitType < GraphQL::Schema::Object
     end
   end
 
-# Circular dep
-#  field :descendants, UnitsType, "Query all children, grandchildren, etc. of this unit" do
-#    argument :first, types.Int, default_value: 100,
-#      description: "Number of results to return (values 1..500 are valid)",
-#      prepare: ->(val, ctx) {
-#        (val.nil? || (val >= 1 && val <= 500)) or return GraphQL::ExecutionError.new("'first' must be in range 1..500")
-#        return val
-#      }
-#    argument :more, types.String, description: %{Opaque string obtained from the `more` field of a prior result,
-#                                                 and used to fetch the next set of nodes.
-#                                                 Do not specify any other arguments with this one; the string already
-#                                                 encodes the prior set of arguments.}.unindent
-#    argument :type, UnitTypeEnum, description: "Type of unit, e.g. ORU, SERIES, JOURNAL"
-#    resolve -> (obj, args, ctx) {
-#      UnitsData.new(args, ctx, obj.id)
-#    }
-#  end
+  field :descendants, UnitsType, "Query all children, grandchildren, etc. of this unit" do
+    argument :first, Int, default_value: 100,
+      description: "Number of results to return (values 1..500 are valid)",
+      prepare: ->(val, ctx) {
+        (val.nil? || (val >= 1 && val <= 500)) or return GraphQL::ExecutionError.new("'first' must be in range 1..500")
+        return val
+      }
+    argument :more, String, required: false, description: %{Opaque string obtained from the `more` field of a prior result,
+                                                 and used to fetch the next set of nodes.
+                                                 Do not specify any other arguments with this one; the string already
+                                                 encodes the prior set of arguments.}.unindent
+    argument :type, UnitTypeEnum, required: false, description: "Type of unit, e.g. ORU, SERIES, JOURNAL"
+    def resolve(obj, args, ctx) 
+      UnitsData.new(args, ctx, obj.id)
+    end
+  end
 
   field :parents, [UnitType], "Direct hierarchical parent(s) (i.e. owning units)" do
     def resolve(obj, args, ctx) 
@@ -585,7 +590,7 @@ class ItemType < GraphQL::Schema::Object
       (val.nil? || (val >= 1 && val <= 500)) or return GraphQL::ExecutionError.new("'first' must be in range 1..500")
       return val
     }
-    argument :more, String
+    argument :more, String, required: false
     def resolve(obj, args, ctx) 
       data = AuthorsData.new(args, obj.id)
       data.nodes.then { |nodes|
@@ -861,7 +866,7 @@ class ItemsType < GraphQL::Schema::Object
 
   field :total, Int, "Approximate total items on all pages", null: false do
     def resolve(obj, args, ctx)
-      puts "RESOLVE ctx is #{ctx}"
+      puts "RESOLVE obj.object.total is #{obj.object.total}"
       puts ctx[:field]  
       obj.object.total 
     end
@@ -962,7 +967,7 @@ class ItemsData
 
     # Record the base query so if 'total' is requested we count without paging
     @baseQuery = query
-
+    puts "Query is #{query}"
     # If this is a 'more' query, add extra constraints so we get the next page (that is,
     # starting just after the end of the last page)
     if args[:lastID]
