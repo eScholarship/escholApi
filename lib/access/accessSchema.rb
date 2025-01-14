@@ -111,12 +111,14 @@ class AuthorIDType < GraphQL::Schema::Object
 
   field :id, String, "The identifier string" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       obj['id'] 
     end
   end
 
   field :scheme, AuthorIDSchemeEnum, "The scheme under which the identifier was minted", null: false do
     def resolve(obj, args, ctx)
+      obj = obj.object
       case obj['type']
         when 'ARK';   "ARK"
         when 'ORCID'; "ORCID"
@@ -126,7 +128,8 @@ class AuthorIDType < GraphQL::Schema::Object
   end
 
   field :subScheme, String, "If scheme is OTHER_ID, this will be more specific" do
-    def resolve(obj, args, ctx) 
+    def resolve(obj, args, ctx)
+     obj = obj.object
       case obj['type']
         when 'ARK'; nil
         when 'ORCID'; nil
@@ -142,37 +145,44 @@ class NamePartsType < GraphQL::Schema::Object
   description "Individual access to parts of the name, generally only used in special cases"
   field :name, String, "Combined name parts; usually 'lname, fname'", null: false do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       obj['name']
     end
   end
 
   field :fname, String, "First name / given name" do
-    def resolve(obj, args, ctx) 
+    def resolve(obj, args, ctx)
+      obj = obj.object
       obj['fname'] 
     end
   end
   field :lname, String, "Last name / surname" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       obj['lname'] 
     end
   end
   field :mname, String, "Middle name" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       obj['mname'] 
     end
   end
   field :suffix, String, "Suffix (e.g. Ph.D)" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       obj['suffix'] 
     end
   end
   field :institution, String, "Institutional affiliation" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       obj['institution'] 
     end
   end
   field :organization, String, "Instead of lname/fname if this is a group/corp" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       obj['organization'] 
     end
   end
@@ -184,24 +194,28 @@ class AuthorType < GraphQL::Schema::Object
 
   field :name, String, "Combined name parts; usually 'lname, fname'", null: false do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       JSON.parse(obj.attrs)['name'] 
     end
   end
 
   field :nameParts, NamePartsType, "Individual name parts for special needs" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       JSON.parse(obj.attrs) 
     end
   end
 
   field :id, ID, "eSchol person ID (many authors have none)" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       obj.person_id 
     end
   end
 
   field :variants, [NamePartsType], "All name variants", null: false do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       if obj.person_id
         variants = Set.new
         ItemAuthor.where(person_id: obj.person_id).each { |other|
@@ -218,7 +232,8 @@ class AuthorType < GraphQL::Schema::Object
   
   field :items, ItemsType, "Query items by this author" do
     defineItemsArgs
-    def resolve(obj, args, ctx) 
+    def resolve(obj, args, ctx)
+      obj = obj.object 
       attrs = obj.attrs ? JSON.parse(obj.attrs) : {}
       idKey = obj[:idSchemeHint] || attrs.keys.find{ |key| key =~ /_id$/ }
       puts("Scheme hint: #{obj[:idSchemeHint]}")
@@ -239,6 +254,7 @@ class AuthorType < GraphQL::Schema::Object
 
   field :email, String, "Email (restricted field)" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       Thread.current[:privileged] or return GraphQL::ExecutionError.new("'email' field is restricted")
       JSON.parse(obj.attrs)['email']
     end
@@ -246,12 +262,14 @@ class AuthorType < GraphQL::Schema::Object
 
   field :orcid, String, "ORCID identifier" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       JSON.parse(obj.attrs)['ORCID_id']
     end
   end
 
   field :ids, [AuthorIDType], "Unified author identifiers, e.g. eschol ARK, ORCID, OTHER." do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       attrs = JSON.parse(obj.attrs)
       ids = [obj.person_id ? {'type' => 'ARK', 'id' => obj.person_id} : nil] + attrs.sort.each.map { |type, id|
         type =~ /_id$/ ? { 'type' => type.sub('_id', ''), 'id' => id } : nil
@@ -268,6 +286,7 @@ class AuthorsType < GraphQL::Schema::Object
   field :total, Int, "Approximate total authors on all pages", null: false
   field :nodes, [AuthorType], "Array of the authors on this page", null: false do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       obj.nodes.then { |nodes|
         nodes.each { |node| node['itemID'] = obj.itemID }
         nodes
@@ -285,24 +304,28 @@ class ContributorType < GraphQL::Schema::Object
 
   field :name, String, "Combined name parts; usually 'lname, fname'", null: false do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       JSON.parse(obj.attrs)['name'] 
     end
   end
 
   field :role, RoleEnum, "Role in which this person or org contributed", null:false do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       obj.role.upcase 
     end
   end
 
   field :nameParts, NamePartsType, "Individual name parts for special needs" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       JSON.parse(obj.attrs) 
     end
   end
 
   field :email, String, "Email (restricted field)" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       Thread.current[:privileged] or return GraphQL::ExecutionError.new("'email' field is restricted")
       JSON.parse(obj.attrs)['email']
     end
@@ -352,12 +375,14 @@ class UnitType < GraphQL::Schema::Object
 
   field :type, UnitTypeEnum, "Type of unit, e.g. ORU, SERIES, JOURNAL", null: false do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       obj.type.upcase
     end
   end
 
   field :issn, String, "ISSN, applies to units of type=JOURNAL only" do
     def resolve(obj, args, ctx)
+      obj = obj.object
       (obj.attrs ? JSON.parse(obj.attrs) : {})['issn']
     end
   end
@@ -366,18 +391,21 @@ class UnitType < GraphQL::Schema::Object
   field :items, ItemsType, "Query items in the unit (incl. children)" do
     defineItemsArgs
     def resolve(obj, args, ctx) 
+      obj = obj.object
       ItemsData.new(args, ctx, unitID: obj.id) 
     end
   end
 
   field :ucpmsId, Int, "Elements ID for the unit" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       (obj.attrs ? JSON.parse(obj.attrs) : {})['elements_id']
     end
   end
 
   field :children, [UnitType], "Direct hierarchical children (i.e. sub-units)" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       query = UnitHier.where(is_direct: true).
                        order(:ordering).
                        select(:ancestor_unit, :unit_id)
@@ -401,12 +429,14 @@ class UnitType < GraphQL::Schema::Object
                                                  encodes the prior set of arguments.}.unindent
     argument :type, UnitTypeEnum, required: false, description: "Type of unit, e.g. ORU, SERIES, JOURNAL"
     def resolve(obj, args, ctx) 
+      obj = obj.object
       UnitsData.new(args, ctx, obj.id)
     end
   end
 
   field :parents, [UnitType], "Direct hierarchical parent(s) (i.e. owning units)" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       query = UnitHier.where(is_direct: true).order(:ordering).select(:ancestor_unit, :unit_id)
       GroupLoader.for(query, :unit_id).load(obj.id).then { |unitHiers|
         unitHiers ? loadFilteredUnits(unitHiers.map { |pu| pu.ancestor_unit }) : nil
@@ -416,6 +446,7 @@ class UnitType < GraphQL::Schema::Object
 
   field :issues, [IssueType], "All journal issues published by this unit (only applies if type=JOURNAL)" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       query = Issue.order(:published, :volume, :issue)
       GroupLoader.for(query, :unit_id).load(obj.id)
     end
@@ -429,18 +460,21 @@ class UnitsType < GraphQL::Schema::Object
 
   field :total, Int, "Approximate total units on all pages", null: false do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       obj.total 
     end
   end
 
   field :nodes, [UnitType], "Array of the units on this page", null: false do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       obj.nodes 
     end
   end
 
   field :more, String, "Opaque cursor string for next page" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       obj.more 
     end
   end
@@ -452,21 +486,25 @@ class SuppFileType < GraphQL::Schema::Object
   description "A file containing supplemental material for an item"
   field :file, String, "Name of the file", null: false do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       obj['file'] 
     end
   end
   field :contentType, String, "Content MIME type of file, if known" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       obj['mimeType'] 
     end
   end
   field :size, GraphQL::Types::BigInt, "Size of the file in bytes" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       obj['size'] 
     end
   end
   field :downloadLink, String, "URL to download the file", null: false do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       content_prefix = ENV['CLOUDFRONT_PUBLIC_URL'] || Thread.current[:baseURL]
       "#{content_prefix}/content/#{obj[:item_id]}/supp/#{obj['file']}"
     end
@@ -481,12 +519,14 @@ class LocalIDType < GraphQL::Schema::Object
 
   field :id, String, "The identifier string", null: false do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       obj['id'] 
     end
   end
 
   field :scheme, ItemIDSchemeEnum, "The scheme under which the identifier was minted", null: false do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       case obj['type']
         when 'merritt';      "ARK"
         when 'doi';          "DOI"
@@ -499,6 +539,7 @@ class LocalIDType < GraphQL::Schema::Object
 
   field :subScheme, String, "If scheme is OTHER_ID, this will be more specific" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       case obj['type']
         when 'merritt';      "Merritt"
         when 'doi';          nil
@@ -518,12 +559,14 @@ class ItemType < GraphQL::Schema::Object
 
   field :id, ID, "eScholarship ARK identifier", null: false do
     def resolve(obj, args, ctx)  
+      obj = obj.object
       "ark:/13030/#{obj.id}" 
     end 
   end
 
   field :title, String, "Title of the item (may include embedded HTML formatting tags)", null: false do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       obj.title || "" 
       # very few null titles; just call it empty string
     end
@@ -531,48 +574,56 @@ class ItemType < GraphQL::Schema::Object
 
   field :status, ItemStatusEnum, "Publication status; usually PUBLISHED", null: false do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       obj.status.sub("withdrawn-junk", "withdrawn").upcase 
     end
   end
 
   field :type, ItemTypeEnum, "Publication type; majority are ARTICLE", null: false do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       obj.genre == "dissertation" ? "ETD" : obj.genre.upcase.gsub('-','_')
     end
   end
 
   field :published, String, "Date the item was published", null: false do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       obj.published 
     end 
   end
 
   field :added, DateType, "Date the item was added to eScholarship", null: false do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       obj.added 
     end
   end
 
   field :updated, DateTimeType, "Date and time the item was last updated on eScholarship", null: false do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       obj.updated 
     end
   end
 
   field :permalink, String, "Permanent link to the item on eScholarship", null: false do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       "#{ENV['ESCHOL_FRONTEND_URL']}/uc/item/#{obj.id.sub(/^qt/,'')}" 
     end
   end
 
   field :contentType, String, "Main content MIME type (e.g. application/pdf)" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       obj.content_type 
     end
   end
 
   field :contentLink, String, "Download link for PDF/content file (if applicable)" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       content_prefix = ENV['CLOUDFRONT_PUBLIC_URL'] || Thread.current[:baseURL]
       obj.status == "published" && obj.content_type == "application/pdf" ?
         "#{content_prefix}/content/#{obj.id}/#{obj.id}.pdf" : nil
@@ -581,6 +632,7 @@ class ItemType < GraphQL::Schema::Object
 
   field :contentSize, Int, "Size of PDF/content file in bytes (if applicable)" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       (obj.attrs ? JSON.parse(obj.attrs) : {})['content_length']
     end
   end
@@ -592,6 +644,7 @@ class ItemType < GraphQL::Schema::Object
     }
     argument :more, String, required: false
     def resolve(obj, args, ctx) 
+      obj = obj.object
       data = AuthorsData.new(args, obj.id)
       data.nodes.then { |nodes|
         nodes && !nodes.empty? ? data : nil
@@ -601,6 +654,7 @@ class ItemType < GraphQL::Schema::Object
 
   field :abstract, String, "Abstract (may include embedded HTML formatting tags)" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       field_name = is_withdrawn(obj) ? 'withdrawn_message' : 'abstract'
       (obj.attrs ? JSON.parse(obj.attrs) : {})[field_name]
     end
@@ -608,6 +662,7 @@ class ItemType < GraphQL::Schema::Object
 
   field :journal, String, "Journal name" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       if obj.section
         RecordLoader.for(Section).load(obj.section).then { |section|
           RecordLoader.for(Issue).load(section.issue_id).then { |issue|
@@ -624,6 +679,7 @@ class ItemType < GraphQL::Schema::Object
 
   field :volume, String, "Journal volume number" do
     def resolve(obj, args, ctx)
+      obj = obj.object
       if obj.section
         RecordLoader.for(Section).load(obj.section).then { |section|
           RecordLoader.for(Issue).load(section.issue_id).then { |issue|
@@ -638,6 +694,7 @@ class ItemType < GraphQL::Schema::Object
 
   field :issue, String, "Journal issue number" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       if obj.section
         RecordLoader.for(Section).load(obj.section).then { |section|
           RecordLoader.for(Issue).load(section.issue_id).then { |issue|
@@ -652,6 +709,7 @@ class ItemType < GraphQL::Schema::Object
 
   field :issn, String, "Journal ISSN" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       if obj.section
         RecordLoader.for(Section).load(obj.section).then { |section|
           RecordLoader.for(Issue).load(section.issue_id).then { |issue|
@@ -668,18 +726,21 @@ class ItemType < GraphQL::Schema::Object
 
   field :publisher, String, "Publisher of the item (if any)" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       (obj.attrs ? JSON.parse(obj.attrs) : {})['publisher']
     end
   end
 
   field :proceedings, String, "Proceedings within which item appears (if any)" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       (obj.attrs ? JSON.parse(obj.attrs) : {})['proceedings']
     end
   end
 
   field :isbn, String, "Book ISBN" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       (obj.attrs ? JSON.parse(obj.attrs) : {})['isbn']
     end
   end
@@ -691,6 +752,7 @@ class ItemType < GraphQL::Schema::Object
     }
     argument :more, String, required: false
     def resolve(obj, args, ctx) 
+      obj = obj.object
       data = ContributorsData.new(args, obj.id)
       data.nodes.then { |nodes|
         nodes && !nodes.empty? ? data : nil
@@ -700,6 +762,7 @@ class ItemType < GraphQL::Schema::Object
 
   field :units, [UnitType], "The series/unit id(s) associated with this item" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       query = UnitItem.where(is_direct: true).order(:item_id, :ordering_of_units).select(:item_id, :unit_id)
       GroupLoader.for(query, :item_id).load(obj.id).then { |unitItems|
         unitItems ? loadFilteredUnits(unitItems.map { |unitItem| unitItem.unit_id }, []) : nil
@@ -709,6 +772,7 @@ class ItemType < GraphQL::Schema::Object
 
   field :tags, [String], "Unified disciplines, keywords, grants, etc." do
     def resolve(obj, args, ctx)
+      obj = obj.object
       if is_withdrawn(obj)
         nil
       else
@@ -726,12 +790,14 @@ class ItemType < GraphQL::Schema::Object
 
   field :subjects, [String], "Subject terms (unrestricted) applying to this item" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       (obj.attrs ? JSON.parse(obj.attrs) : {})['subjects']
     end
   end
 
   field :keywords, [String], "Keywords (unrestricted) applying to this item" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       if is_withdrawn(obj)
         nil
       else
@@ -742,12 +808,14 @@ class ItemType < GraphQL::Schema::Object
 
   field :disciplines, [String], "Disciplines applying to this item" do
     def resolve(obj, args, ctx)
+      obj = obj.object
       (obj.attrs ? JSON.parse(obj.attrs) : {})['disciplines']
     end
   end
 
   field :grants, [String], "Funding grants linked to this item" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       grants = (obj.attrs ? JSON.parse(obj.attrs) : {})['grants']
       grants ? grants.map { |gr| gr['name'] } : nil
     end
@@ -755,36 +823,42 @@ class ItemType < GraphQL::Schema::Object
 
   field :language, String, "Language specification (ISO 639-2 code)" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       (obj.attrs ? JSON.parse(obj.attrs) : {})['language']
     end
   end
 
   field :embargoExpires, DateType, "Embargo expiration date (if status=EMBARGOED)" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       (obj.attrs ? JSON.parse(obj.attrs) : {})['embargo_date']
     end
   end
 
   field :rights, String, "License (none, or e.g. https://creativecommons.org/licenses/by-nc/4.0/)" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       obj.rights
     end
   end
 
   field :fpage, String, "First page (within a larger work like a journal issue)" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       (obj.attrs ? JSON.parse(obj.attrs) : {}).dig('ext_journal', 'fpage')
     end
   end
 
   field :lpage, String, "Last page (within a larger work like a journal issue)" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       (obj.attrs ? JSON.parse(obj.attrs) : {}).dig('ext_journal', 'lpage')
     end
   end
 
   field :pagination, String, "Combined first page - last page" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       attrs = obj.attrs ? JSON.parse(obj.attrs) : {}
       fpage = attrs.dig('ext_journal', 'fpage')
       lpage = attrs.dig('ext_journal', 'lpage')
@@ -794,6 +868,7 @@ class ItemType < GraphQL::Schema::Object
 
   field :suppFiles, [SuppFileType], "Supplemental material (if any)" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       supps = (obj.attrs ? JSON.parse(obj.attrs) : {})['supp_files']
       if supps and ! is_withdrawn(obj)
         supps.map { |data| data.merge({item_id: obj.id}) }
@@ -805,18 +880,21 @@ class ItemType < GraphQL::Schema::Object
 
   field :source, String, "Source system within the eScholarship environment", null: false do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       obj.source
     end
   end
 
   field :ucpmsPubType, String, "If publication originated from UCPMS, the type within that system" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       (obj.attrs ? JSON.parse(obj.attrs) : {})['uc_pms_pub_type']
     end
   end
 
   field :localIDs, [LocalIDType], "Local item identifiers, e.g. DOI, PubMed ID, LBNL, etc." do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       attrs = obj.attrs ? JSON.parse(obj.attrs) : {}
       ids = attrs['local_ids'] || []
       attrs['doi'] and ids.unshift({"type" => "doi", "id" => attrs['doi']})
@@ -826,30 +904,35 @@ class ItemType < GraphQL::Schema::Object
 
   field :externalLinks, [String], "Published web location(s) external to eScholarshp" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       (obj.attrs ? JSON.parse(obj.attrs) : {})['pub_web_loc']
     end
   end
 
   field :bookTitle, String, "Title of the book within which this item appears" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       (obj.attrs ? JSON.parse(obj.attrs) : {})['book_title']
     end
   end
 
   field :nativeFileName, String, "Name of original (pre-PDF-conversion) file" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       (obj.attrs ? JSON.parse(obj.attrs) : {}).dig('native_file', 'name')
     end
   end
 
   field :nativeFileSize, String, "Size of original (pre-PDF-conversion) file" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       (obj.attrs ? JSON.parse(obj.attrs) : {}).dig('native_file', 'size')
     end
   end
 
   field :isPeerReviewed, Boolean, "Whether the work has undergone a peer review process" do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       if is_withdrawn(obj)
         nil
       else
@@ -866,23 +949,22 @@ class ItemsType < GraphQL::Schema::Object
 
   field :total, Int, "Approximate total items on all pages", null: false do
     def resolve(obj, args, ctx)
-      puts "RESOLVE obj.object.total is #{obj.object.total}"
-      puts ctx[:field]  
-      obj.object.total 
+      obj = obj.object
+      obj.total 
     end
   end
 
   field :nodes, [ItemType], "Array of the items on this page", null: false do
     def resolve(obj, args, ctx)
-      puts obj.object.instance_variables 
-      puts obj.object.nodes 
-      obj.object.nodes 
+      obj = obj.object
+      obj.nodes 
     end
   end
 
   field :more, String, "Opaque cursor string for next page" do
     def resolve(obj, args, ctx) 
-      obj.object.more 
+      obj = obj.object
+      obj.more 
     end
   end
 end
@@ -892,7 +974,7 @@ class ItemsData
   def initialize(args, ctx, unitID: nil, itemID: nil, personID: nil,
                  authorID: nil, authorScheme: nil, authorSubScheme: nil)
     # Query by status, defaulting to PUBLISHED only
-    statuses = (args[:include] || [:PUBLISHED]).map { |statusEnum| statusEnum.downcase }
+    statuses = (args[:include] || ["PUBLISHED"]).map { |statusEnum| statusEnum.downcase }
     query = Item.where(status: statuses)
 
     # If 'more' was specified, decode it and use all the parameters from the original query
@@ -939,11 +1021,11 @@ class ItemsData
     # Apply limits as specified
     if args[:before]
       # Exclusive ('<'), so that queries like "after: 2018-11-01 before: 2018-12-01" work as user expects.
-      query = query.where(Sequel.lit("#{field} < ?", field == :updated ? args['before'] : args['before'].to_date))
+      query = query.where(Sequel.lit("#{field} < ?", field == :updated ? args[:before] : args[:before].to_date))
     end
     if args[:after]
       # Inclusive ('>='), so that queries like "after: 2018-11-01 before: 2018-12-01" work as user expects.
-      query = query.where(Sequel.lit("#{field} >= ?", field == :updated ? args['after'] : args['after'].to_date))
+      query = query.where(Sequel.lit("#{field} >= ?", field == :updated ? args[:after] : args[:after].to_date))
     end
 
     # Matching on tags if specified
@@ -967,13 +1049,12 @@ class ItemsData
 
     # Record the base query so if 'total' is requested we count without paging
     @baseQuery = query
-    puts "Query is #{query}"
     # If this is a 'more' query, add extra constraints so we get the next page (that is,
     # starting just after the end of the last page)
     if args[:lastID]
       dir = ascending ? '>' : '<'
       query = query.where(Sequel.lit("#{field} #{dir} ? or (#{field} = ? and id #{dir} ?)",
-                                     args['lastDate'], args['lastDate'], args['lastID']))
+                                     args[:lastDate], args[:lastDate], args[:lastID]))
     end
 
     @query = query
@@ -994,7 +1075,7 @@ class ItemsData
   # the next page.
   def more
     if nodes().length == @limit
-      more = @args.clone
+      more = @args.dup
       more[:lastID]   = nodes()[-1].id
       more[:lastDate] = nodes()[-1][@field].iso8601
       return Base64.urlsafe_encode64(more.to_json).gsub('=', '')
@@ -1046,7 +1127,7 @@ end
 class ContributorsData
   def initialize(args, itemID)
     # If 'more' was specified, decode it and use all the parameters from the original query
-    @args = args['more'] ? JSON.parse(Base64.urlsafe_decode64(args['more'])) : args.to_h.clone
+    @args = args[:more] ? JSON.parse(Base64.urlsafe_decode64(args[:more])) : args.to_h.clone
 
     # Record the item ID for querying
     @itemID = itemID
@@ -1058,13 +1139,13 @@ class ContributorsData
 
   def nodes
     query = ItemContrib.order(:item_id, :ordering)
-    @args['lastOrd'] and query = query.where(Sequel.lit("ordering > ?", @args['lastOrd']))
-    @nodes ||= GroupLoader.for(query, :item_id, @args['first']).load(@itemID)
+    @args[:lastOrd] and query = query.where(Sequel.lit("ordering > ?", @args[:lastOrd]))
+    @nodes ||= GroupLoader.for(query, :item_id, @args[:first]).load(@itemID)
   end
 
   def more
     nodes.then { |arr|
-      if arr && arr.length == @args['first']
+      if arr && arr.length == @args[:first]
         Base64.urlsafe_encode64(@args.merge({lastOrd: arr[-1].ordering}).to_json)
       else
         nil
@@ -1084,11 +1165,11 @@ class UnitsData
                  order(:unit_id)
 
     # If 'more' was specified, decode it and use all the parameters from the original query
-    args['more'] and args = JSON.parse(Base64.urlsafe_decode64(args['more']))
+    args[:more] and args = JSON.parse(Base64.urlsafe_decode64(args[:more]))
 
     # If this is a type query, restrict to units of that type
-    if args['type']
-      query = query.where(type: args['type'].downcase)
+    if args[:type]
+      query = query.where(type: args[:type].downcase)
     end
 
     # Record the base query so if 'total' is requested we count without paging
@@ -1096,12 +1177,12 @@ class UnitsData
 
     # If this is a 'more' query, add extra constraints so we get the next page (that is,
     # starting just after the end of the last page)
-    if args['lastID']
-      query = query.where(Sequel.lit("unit_id > ?", args['lastID']))
+    if args[:lastID]
+      query = query.where(Sequel.lit("unit_id > ?", args[:lastID]))
     end
 
     @query = query
-    @limit = args['first'].to_i
+    @limit = args[:first].to_i
     @args = args.to_h.clone
   end
 
@@ -1117,8 +1198,8 @@ class UnitsData
   # the next page.
   def more
     if nodes().length == @limit
-      more = @args.clone
-      more['lastID']   = nodes()[-1].id
+      more = @args.dup
+      more[:lastID]   = nodes()[-1].id
       return Base64.urlsafe_encode64(more.to_json).gsub('=', '')
     else
       return nil
@@ -1159,9 +1240,10 @@ class AccessQueryType < GraphQL::Schema::Object
   field :item, ItemType, "Get item's info given its identifier" do 
     argument :id, ID
     argument :scheme, ItemIDSchemeEnum
-    def resolve(obj, args, ctx) 
-      scheme = args["scheme"] || "ARK"
-      id = args["id"]
+    def resolve(obj, args, ctx)
+      obj = obj.object 
+      scheme = args[:scheme] || "ARK"
+      id = args[:id]
       if scheme == "ARK" && id =~ %r{^ark:/13030/(qt\w{8})$}
         return Item[$1]
       elsif scheme == "DOI" && id =~ /^.*?\b(10\..*)$/
@@ -1169,7 +1251,7 @@ class AccessQueryType < GraphQL::Schema::Object
       elsif %w{LBNL_PUB_ID OA_PUB_ID ARK}.include?(scheme)
         Item.where(Sequel.lit(%{attrs->"$.local_ids" like ?}, "%#{id}%")).limit(100).each { |item|
           attrs = item.attrs ? JSON.parse(item.attrs) : {}
-          (attrs['local_ids'] || []).each { |loc|
+          (attrs[:local_ids] || []).each { |loc|
             next unless loc['id'] == id
             if scheme == "LBNL_PUB_ID" && loc['type'] == 'lbnl'
               return item
@@ -1189,8 +1271,6 @@ class AccessQueryType < GraphQL::Schema::Object
   field :items, ItemsType, "Query a list of all items" do
     defineItemsArgs
     def resolve(obj, args, ctx)
-      puts "The args are #{args}"
-      puts "The context is #{ctx}"  
       ItemsData.new(args, ctx) 
     end
   end
@@ -1198,14 +1278,14 @@ class AccessQueryType < GraphQL::Schema::Object
   field :unit, UnitType, "Get a unit given its identifier" do
     argument :id, ID
     def resolve(obj, args, ctx) 
-      Unit[args["id"]] 
+      Unit[args[:id]] 
     end
   end
 
   field :unitsUCPMSList, [UnitType], "Returns the units matching a given list of UCPMS IDs" do
     argument :ucpmsIdList, [Int]
     def resolve(obj, args, ctx) 
-      ucpmsIdListString = args['ucpmsIdList'].join(", ")
+      ucpmsIdListString = args[:ucpmsIdList].join(", ")
       Unit.where(Sequel.lit("attrs->>'$.elements_id' IN (#{ucpmsIdListString})"))
     end
   end
@@ -1222,12 +1302,12 @@ class AccessQueryType < GraphQL::Schema::Object
     argument :subScheme, String, required: false
     argument :email, String, required: false
     def resolve(obj, args, ctx) 
-      id, email, scheme, subScheme = args['id'], args['email'], args['scheme'], args['subScheme']
+      id, email, scheme, subScheme = args[:id], args[:email], args[:scheme], args[:subScheme]
       if (id && email) || (!id && !email)
         return GraphQL::ExecutionError.new("must specify either 'id' or 'email'")
-      elsif args['id']
+      elsif args[:id]
         case scheme
-          when nil, 'ARK'; person = Person[args['id']]
+          when nil, 'ARK'; person = Person[args[:id]]
           when 'ORCID';
             record = Person.where(Sequel.lit(%{attrs->>"$.ORCID_id" = ?}, id)).first
             record or record = ItemAuthor.where(Sequel.lit(%{attrs->>"$.ORCID_id" = ?}, id)).first
