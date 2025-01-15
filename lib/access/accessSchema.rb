@@ -1239,7 +1239,7 @@ class AccessQueryType < GraphQL::Schema::Object
 
   field :item, ItemType, "Get item's info given its identifier" do 
     argument :id, ID
-    argument :scheme, ItemIDSchemeEnum
+    argument :scheme, ItemIDSchemeEnum, required: false
     def resolve(obj, args, ctx)
       obj = obj.object 
       scheme = args[:scheme] || "ARK"
