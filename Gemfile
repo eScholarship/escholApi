@@ -29,7 +29,7 @@ gem 'socksify'
 gem 'erubis'
 gem 'httparty'
 gem 'io-console'   # undocumented prereq of net-ssh
-gem 'net-ssh'
+gem 'net-ssh','>=7.3.0'
 gem 'nokogiri'
 gem 'unindent'
 gem 'xml-simple'

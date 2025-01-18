@@ -280,6 +280,7 @@ def depositItem(input, replace:)
     metadata: "Updated",
     rights:   "Rights Updated"
   }
+  puts "input is #{input}"
   actionVerb = replace_verbs.fetch(replace, "Deposited")
   comment = "'#{actionVerb} at #{source_url}' "
   Net::SSH.start($submitServer, $submitUser, **$submitSSHOpts) do |ssh|
@@ -287,7 +288,7 @@ def depositItem(input, replace:)
     # items aren't properly cleaned up).
     if !replace
       ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb --checkID #{shortArk} " +
-                   "#{input['sourceName']} #{input['sourceID']}")
+                   "#{input[:sourceName]} #{input[:sourceID]}")
       $provisionalIDs.delete(fullArk)
     end
 
@@ -309,7 +310,7 @@ def depositItem(input, replace:)
                  "#{replace_options.fetch(replace, "--depositItem")} " +
                  "#{shortArk} " +
                  "#{comment} " +
-                 "#{input['submitterEmail'] || "''" } -", metaText)
+                 "#{input[:submitterEmail] || "''" } -", metaText)
     puts "stdout from main subiGuts operation:\n#{out[:stdout]}"
 
     if input.key?(:imgFiles)
@@ -331,7 +332,7 @@ def depositItem(input, replace:)
     # Claim the provisional ARK if not already done
     if !replace
       ssh.exec_sc!("/apps/eschol/subi/lib/subiGuts.rb --claimID #{shortArk} " +
-                   "#{input['sourceName']} #{input['sourceID']}")
+                   "#{input[:sourceName]} #{input[:sourceID]}")
       $provisionalIDs.delete(fullArk)
     end
   end
@@ -414,7 +415,8 @@ class MintProvisionalIDOutput < GraphQL::Schema::Object
   graphql_name "MintProvisionalIDOutput"
   description "Output from the mintProvisionalID mutation"
   field :id, ID, "The minted item identifier", null: false do
-    def resolve(obj, args, ctx) 
+    def resolve(obj, args, ctx)
+      obj = obj.object 
       obj[:id] 
     end 
   end
@@ -568,12 +570,14 @@ class DepositItemOutput < GraphQL::Schema::Object
   graphql_name "DepositItemOutput"
   description "Output from the depositItem mutation"
   field :id, ID, "The (possibly new) item identifier", null: false do
-    def resolve(obj, args, ctx) 
+    def resolve(obj, args, ctx)
+      obj = obj.object 
       return obj[:id] 
     end
   end
   field :message, String, "Message describing what was done", null: false do
     def resolve(obj, args, ctx) 
+      obj = obj.object
       return obj[:message] 
     end
   end
