@@ -30,7 +30,7 @@ VERSION=`date -Iseconds`
 DIR=escholApi
 BUCKET=cdlpub-apps
 REGION=us-west-2
-APPNAME=eb-pub-api2
+APPNAME=eb-pub-api3
 
 # make sure we don't push non-master branch to prd
 CUR_BRANCH=`git rev-parse --abbrev-ref HEAD`
