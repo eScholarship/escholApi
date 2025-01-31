@@ -109,7 +109,7 @@ class AccessLogger
 end
 
 ###################################################################################################
-EscholSchema = GraphQL::Schema.define do
+class EscholSchema < GraphQL::Schema
   query AccessQueryType
   mutation SubmitMutationType
   use GraphQL::Batch

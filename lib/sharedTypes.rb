@@ -1,10 +1,11 @@
 
 ###################################################################################################
-DateType = GraphQL::ScalarType.define do
-  name "Date"
+#module Types
+class DateType < GraphQL::Schema::Scalar
+  graphql_name "Date"
   description %{A date in ISO-8601 format. Example: "2018-03-09"}
 
-  coerce_input ->(value, ctx) do
+  def self.coerce_input(value, ctx)
     begin
       Date.iso8601(value)
     rescue ArgumentError
@@ -12,17 +13,19 @@ DateType = GraphQL::ScalarType.define do
     end
   end
 
-  coerce_result ->(value, ctx) { (value.instance_of?(Date) ? value : Date.iso8601(value)).iso8601 }
+  def self.coerce_result(value, ctx)
+    (value.instance_of?(Date) ? value : Date.iso8601(value)).iso8601 
+  end
 end
 
 ###################################################################################################
-DateTimeType = GraphQL::ScalarType.define do
-  name "DateTime"
+class DateTimeType < GraphQL::Schema::Scalar
+  graphql_name "DateTime"
   description %{A date and time in ISO-8601 format, including timezone.
                 Example: "2018-03-09T15:02:42-08:00"
                 If you don't specify the time, midnight (server-local) will be used.}.unindent
 
-  coerce_input ->(value, ctx) do
+  def coerce_input(value, ctx)
     begin
       # Normalize timezone to localtime
       Time.iso8601(value).localtime.to_datetime
@@ -36,20 +39,22 @@ DateTimeType = GraphQL::ScalarType.define do
     end
   end
 
-  coerce_result ->(value, ctx) { value.iso8601 }
+  def coerce_result(value, ctx) 
+    value.iso8601 
+  end
 end
 
 ###################################################################################################
-RoleEnum = GraphQL::EnumType.define do
-  name "Role"
+class RoleEnum < GraphQL::Schema::Enum
+  graphql_name "Role"
   description "Publication type of an Item (often ARTICLE)"
   value("ADVISOR", "Advised on the work (e.g. on a thesis)")
   value("EDITOR", "Edited the work")
 end
 
 ###################################################################################################
-ItemIDSchemeEnum = GraphQL::EnumType.define do
-  name "ItemIDScheme"
+class ItemIDSchemeEnum < GraphQL::Schema::Enum
+  graphql_name "ItemIDScheme"
   description "The scheme under which the identifier was minted"
   value("ARK", "eSchol (ark:/13030/qt...) or Merritt ARK")
   value("DOI", "A Digital Object Identifier, with or w/o http://dx.doi.org prefix")
@@ -59,8 +64,8 @@ ItemIDSchemeEnum = GraphQL::EnumType.define do
 end
 
 ###################################################################################################
-AuthorIDSchemeEnum = GraphQL::EnumType.define do
-  name "AuthorIDScheme"
+class AuthorIDSchemeEnum < GraphQL::Schema::Enum
+  graphql_name "AuthorIDScheme"
   description "The scheme under which the identifier was minted"
   value("ARK", "eSchol (ark:/13030/qt...) ARK")
   value("ORCID", "An Open Researcher and Contributor ID")
@@ -68,18 +73,19 @@ AuthorIDSchemeEnum = GraphQL::EnumType.define do
 end
 
 ###################################################################################################
-FileVersionEnum = GraphQL::EnumType.define do
-  name "FileVersion"
+class FileVersionEnum < GraphQL::Schema::Enum
+  graphql_name "FileVersion"
   description "Version of a content file, e.g. AUTHOR_VERSION"
   value("AUTHOR_VERSION", "Author's final version")
   value("PUBLISHER_VERSION", "Publisher's final version")
 end
 
 ###################################################################################################
-PubRelationEnum = GraphQL::EnumType.define do
-  name "PubRelation"
+class PubRelationEnum < GraphQL::Schema::Enum
+  graphql_name "PubRelation"
   description "Relationship of this publication to eScholarship"
   value("INTERNAL_PUB", "Originally published on eScholarship")
   value("EXTERNAL_PUB", "Published externally to eScholarship before deposit")
   value("EXTERNAL_ACCEPT", "Accepted and will be published externally to eScholarship post-deposit")
 end
+#end

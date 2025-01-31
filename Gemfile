@@ -12,7 +12,7 @@ gem 'rack-protection'
 gem 'mysql2'
 
 # Graphql
-gem 'graphql','=1.12.16'
+gem 'graphql','>=2.4.8'
 gem 'graphql-batch'
 gem 'json'
 
@@ -29,7 +29,7 @@ gem 'socksify'
 gem 'erubis'
 gem 'httparty'
 gem 'io-console'   # undocumented prereq of net-ssh
-gem 'net-ssh'
+gem 'net-ssh','>=7.3.0'
 gem 'nokogiri'
 gem 'unindent'
 gem 'xml-simple'
@@ -38,5 +38,5 @@ gem 'bcrypt_pbkdf'
 
 group :development do
   gem 'ffi', '>= 1.9.25'
-  gem 'rerun', '>= 0.13.0'
+  gem 'rerun', '>= 0.14.0'
 end
