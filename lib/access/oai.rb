@@ -91,7 +91,7 @@ class EscholRecord
   end
 
   def updated_at
-    Time.parse(@data['updated'])
+    @data['updated']
   end
 
   def dcFields(xml)
