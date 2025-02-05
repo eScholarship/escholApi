@@ -190,7 +190,7 @@ def uciFromInput(input, ark)
   # Top-level attributes
   uci[:id] = ark.sub(%r{ark:/?13030/}, '')
   uci[:dateStamp] = DateTime.now.iso8601
-  uci[:peerReview] = input['isPeerReviewed'] ? "yes" : "no"
+  uci[:peerReview] = input[:isPeerReviewed] ? "yes" : "no"
   uci[:state] = 'new'
   uci[:stateDate] = DateTime.now.iso8601
   input[:type] and uci[:type] = convertPubType(input[:type])
