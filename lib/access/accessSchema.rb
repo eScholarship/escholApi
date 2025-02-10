@@ -979,7 +979,7 @@ class ItemsData
 
     # If 'more' was specified, decode it and use all the parameters from the original query
     if args[:more]
-      args = JSON.parse(Base64.urlsafe_decode64(args[:more]))
+      args = JSON.parse(Base64.urlsafe_decode64(args[:more])).transform_keys(&:to_sym)
       args[:before] and args[:before] = DateTime.parse(args[:before])
       args[:after] and args[:after] = DateTime.parse(args[:after])
     end
@@ -1011,7 +1011,6 @@ class ItemsData
     if itemID
       query = query.where(id: itemID)
     end
-
     # Let's get the ordering correct -- using the right field, and either ascending or descending
     field = args[:order].sub(/_.*/,'').downcase.to_sym
     ascending = (args[:order] =~ /ASC/)
@@ -1092,7 +1091,7 @@ class AuthorsData
 
   def initialize(args, itemID)
     # If 'more' was specified, decode it and use all the parameters from the original query
-    @args = args[:more] ? JSON.parse(Base64.urlsafe_decode64(args[:more])) : args.to_h.clone
+    @args = args[:more] ? JSON.parse(Base64.urlsafe_decode64(args[:more])).transform_keys(&:to_sym) : args.to_h.clone
 
     # Record the item ID for querying
     @itemID = itemID
@@ -1127,7 +1126,7 @@ end
 class ContributorsData
   def initialize(args, itemID)
     # If 'more' was specified, decode it and use all the parameters from the original query
-    @args = args[:more] ? JSON.parse(Base64.urlsafe_decode64(args[:more])) : args.to_h.clone
+    @args = args[:more] ? JSON.parse(Base64.urlsafe_decode64(args[:more])).transform_keys(&:to_sym) : args.to_h.clone
 
     # Record the item ID for querying
     @itemID = itemID
@@ -1165,7 +1164,7 @@ class UnitsData
                  order(:unit_id)
 
     # If 'more' was specified, decode it and use all the parameters from the original query
-    args[:more] and args = JSON.parse(Base64.urlsafe_decode64(args[:more]))
+    args[:more] and args = JSON.parse(Base64.urlsafe_decode64(args[:more])).transform_keys(&:to_sym)
 
     # If this is a type query, restrict to units of that type
     if args[:type]
