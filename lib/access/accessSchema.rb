@@ -1020,11 +1020,11 @@ class ItemsData
     # Apply limits as specified
     if args[:before]
       # Exclusive ('<'), so that queries like "after: 2018-11-01 before: 2018-12-01" work as user expects.
-      query = query.where(Sequel.lit("#{field} < ?", field == :updated ? args[:before] : args[:before].to_date))
+      query = query.where(Sequel.lit("#{field} < ?", field == :updated ? args[:before] : Date.parse(args[:before])))
     end
     if args[:after]
       # Inclusive ('>='), so that queries like "after: 2018-11-01 before: 2018-12-01" work as user expects.
-      query = query.where(Sequel.lit("#{field} >= ?", field == :updated ? args[:after] : args[:after].to_date))
+      query = query.where(Sequel.lit("#{field} >= ?", field == :updated ? args[:after] : Date.parse(args[:after])))
     end
 
     # Matching on tags if specified
@@ -1250,7 +1250,7 @@ class AccessQueryType < GraphQL::Schema::Object
       elsif %w{LBNL_PUB_ID OA_PUB_ID ARK}.include?(scheme)
         Item.where(Sequel.lit(%{attrs->"$.local_ids" like ?}, "%#{id}%")).limit(100).each { |item|
           attrs = item.attrs ? JSON.parse(item.attrs) : {}
-          (attrs[:local_ids] || []).each { |loc|
+          (attrs['local_ids'] || []).each { |loc|
             next unless loc['id'] == id
             if scheme == "LBNL_PUB_ID" && loc['type'] == 'lbnl'
               return item
@@ -1319,7 +1319,7 @@ class AccessQueryType < GraphQL::Schema::Object
             return record
           else raise
         end
-      elsif args['email']
+      elsif args[:email]
         person = Person.where(Sequel.lit(%{lower(attrs->>"$.email") = ?}, email.downcase)).first
         person or return ItemAuthor.where(Sequel.lit(%{lower(attrs->>"$.email") = ?}, email.downcase)).first
       else
