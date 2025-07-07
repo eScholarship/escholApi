@@ -639,7 +639,7 @@ class ItemType < GraphQL::Schema::Object
 
   field :authors, AuthorsType, "All authors (can be long)" do
     argument :first, Int, default_value: 100, prepare: ->(val, ctx) {
-      (val.nil? || (val >= 1 && val <= 500)) or return GraphQL::ExecutionError.new("'first' must be in range 1..500")
+      (val.nil? || (val >= 1 && val <= 10000)) or return GraphQL::ExecutionError.new("'first' must be in range 1..10000")
       return val
     }
     argument :more, String, required: false
@@ -747,7 +747,7 @@ class ItemType < GraphQL::Schema::Object
 
   field :contributors, ContributorsType, "Editors, advisors, etc. (if any)" do
     argument :first, Int, default_value: 100, prepare: ->(val, ctx) {
-      (val.nil? || (val >= 1 && val <= 500)) or return GraphQL::ExecutionError.new("'first' must be in range 1..500")
+      (val.nil? || (val >= 1 && val <= 10000)) or return GraphQL::ExecutionError.new("'first' must be in range 1..10000")
       return val
     }
     argument :more, String, required: false
