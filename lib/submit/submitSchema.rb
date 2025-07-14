@@ -75,10 +75,10 @@ def convertKeywords(uci, kws)
 end
 
 ###################################################################################################
-def convertSubjects(uci, kws)
+def convertSubjects(uci, subs)
   uci.find!('subjects').build { |xml|
-    kws.each { |kw|
-      xml.subject kw
+    subs.each { |sub|
+      xml.subject sub
     }
   }
 end
