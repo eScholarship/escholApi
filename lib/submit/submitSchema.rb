@@ -75,6 +75,15 @@ def convertKeywords(uci, kws)
 end
 
 ###################################################################################################
+def convertSubjects(uci, subs)
+  uci.find!('subjects').build { |xml|
+    subs.each { |sub|
+      xml.subject sub
+    }
+  }
+end
+
+###################################################################################################
 def convertFunding(uci, inFunding)
   uci.find!('funding').build { |xml|
     inFunding.each { |info|
@@ -214,6 +223,7 @@ def uciFromInput(input, ark)
   input[:abstract] and uci.find!('abstract').content = input[:abstract]
   (input[:fpage] || input[:lpage]) and convertExtent(uci, input)
   input[:keywords] and convertKeywords(uci, input[:keywords])
+  input[:subjects] and convertSubjects(uci, input[:subjects])
   uci.find!('rights').content = convertRights(input[:rights])
   input[:grants] and convertFunding(uci, input[:grants])
   uci.find!('customCitation').content = input[:customCitation]
