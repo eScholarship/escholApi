@@ -19,6 +19,7 @@ end
 ###################################################################################################
 def convertPubType(type)
   return { 'ARTICLE' => 'paper',
+           'ETD' => 'etd',
            'NON_TEXTUAL' => 'non-textual',
            'MONOGRAPH' => 'monograph',
            'CHAPTER' => 'chapter' }[type] || raise("Invalid pubType #{type.inspect}")
