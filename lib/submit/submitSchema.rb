@@ -647,6 +647,7 @@ class ReplaceMetadataInput < GraphQL::Schema::InputObject
   argument :datePublished, String, "Date the article was published", required: false
   argument :dataAvailability, String, "Data availability statement", required: false
   argument :dataURL, String, "URL to data available in a public repository", required: false
+  argument :thesisDept, String, "Department name in thesis submission", required: false
 end
 
 class ReplaceMetadataOutput < GraphQL::Schema::Object
