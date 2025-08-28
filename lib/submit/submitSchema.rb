@@ -252,6 +252,7 @@ def uciFromInput(input, ark)
       input[:dateSubmitted] and xml.dateSubmitted(input[:dateSubmitted])
       input[:dateAccepted] and xml.dateAccepted(input[:dateAccepted])
       input[:datePublished] and xml.datePublished(input[:datePublished])
+      input[:thesisDept] and xml.department(input[:thesisDept])
   }
 
   # Content and supp files
@@ -575,6 +576,7 @@ class DepositItemInput < GraphQL::Schema::InputObject
   argument :datePublished, String, "Date the article was published", required: false
   argument :dataAvailability, String, "Data availability statement", required: false
   argument :dataURL, String, "URL to data available in a public repository", required: false
+  argument :thesisDept, String, "Department name in thesis submission", required: false
 end
 
 class DepositItemOutput < GraphQL::Schema::Object
