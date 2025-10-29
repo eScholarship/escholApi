@@ -363,6 +363,7 @@ class UnitTypeEnum < GraphQL::Schema::Enum
   value("ROOT",             "eScholarship itself")
   value("SEMINAR_SERIES",   "series of seminars")
   value("SERIES",           "general series of publications")
+  value("CONFERENCE_PROCEEDINGS", "proceedings of a conference")
 end
 ###################################################################################################
 class UnitType < GraphQL::Schema::Object
