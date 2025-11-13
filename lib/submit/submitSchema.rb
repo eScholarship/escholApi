@@ -126,6 +126,7 @@ def convertExtLinks(xml, links)
     xml.publishedWebLocation(url)
   }
 end
+
 ###################################################################################################
 def validateDataStatement(input)
   d = input[:dataAvailability]
@@ -290,7 +291,8 @@ def depositItem(input, replace:)
   replace_verbs = {
     files:    "Redeposited",
     metadata: "Updated",
-    rights:   "Rights Updated"
+    rights:   "Rights Updated",
+    localIDs:   "Local IDs Updated"
   }
   puts "input is #{input}"
   actionVerb = replace_verbs.fetch(replace, "Deposited")
@@ -314,7 +316,8 @@ def depositItem(input, replace:)
     replace_options = {
       files:    "--replaceFiles",
       metadata: "--replaceMetadata",
-      rights:   "--replaceRights"
+      rights:   "--replaceRights",
+      localIDs:   "--replaceLocalIDs"
     }
 
     # Call subiGuts with specified options, get stdout.
@@ -708,6 +711,26 @@ class UpdateRightsOutput < GraphQL::Schema::Object
 end
 
 ###################################################################################################
+class UpdateLocalIDsInput < GraphQL::Schema::InputObject
+  graphql_name "UpdateLocalIDsInput"
+  description "Input for updating Local IDs."
+
+  argument :id, ID, "Identifier of the item to update", required: true
+  argument :localIDs, [LocalIDInput], "Local identifiers, e.g. DOI, PubMed ID, LBNL, etc.", required: true
+end
+
+class UpdateLocalIDsOutput < GraphQL::Schema::Object
+  graphql_name "UpdateLocalIDsOutput"
+  description "Output from updating Local IDs"
+  field :message, String, "Message describing the outcome", null: false do
+    def resolve(obj, args, ctx) 
+      obj = obj.object
+      return obj[:message] 
+    end
+  end
+end
+
+###################################################################################################
 class WithdrawItemInput < GraphQL::Schema::InputObject
   graphql_name "WithdrawItemInput"
   description "Input to the withdrawItem mutation"
@@ -787,6 +810,14 @@ class SubmitMutationType < GraphQL::Schema::Object
     def resolve(obj, args, ctx) 
       Thread.current[:privileged] or halt(403)
       return depositItem(args[:input], replace: :rights)
+    end
+  end
+
+  field :updateLocalIDs, UpdateLocalIDsOutput, "Update an item's Local IDs", null: false do
+    argument :input, UpdateLocalIDsInput
+    def resolve(obj, args, ctx) 
+      Thread.current[:privileged] or halt(403)
+      return depositItem(args[:input], replace: :localIDs)
     end
   end
 
