@@ -26,7 +26,7 @@ RUN npm install
 COPY . .
 
 # Expose the default Sinatra port
-EXPOSE 3000
+EXPOSE 18880
 
 # Run the app
 CMD ["./run.sh"]
