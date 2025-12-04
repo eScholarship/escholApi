@@ -713,9 +713,10 @@ end
 ###################################################################################################
 class UpdateLocalIDsInput < GraphQL::Schema::InputObject
   graphql_name "UpdateLocalIDsInput"
-  description "Input for updating Local IDs."
+  description "Input for updating Local IDs. (Currently implemented for OSTI IDs only)."
 
   argument :id, ID, "Identifier of the item to update", required: true
+  argument :published, String, "Date the item was published"
   argument :localIDs, [LocalIDInput], "Local identifiers, e.g. DOI, PubMed ID, LBNL, etc.", required: true
 end
 
@@ -813,7 +814,7 @@ class SubmitMutationType < GraphQL::Schema::Object
     end
   end
 
-  field :updateLocalIDs, UpdateLocalIDsOutput, "Update an item's Local IDs", null: false do
+  field :updateLocalIDs, UpdateLocalIDsOutput, "Add Local IDs to an eSchol item: Currently implemented for OSTI IDs only.", null: false do
     argument :input, UpdateLocalIDsInput
     def resolve(obj, args, ctx) 
       Thread.current[:privileged] or halt(403)
