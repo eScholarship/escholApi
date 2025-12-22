@@ -1,0 +1,10 @@
+template:
+  type: file
+  path: fargate-service.yaml.j2
+stack_name: pad-eschol-api-stg
+sceptre_user_data:
+  environment: stg
+  dbuser: escholrw
+  escholurl: 'http://pub-jschol2-stg.escholarship.org'
+  submitserver: 'pub-submit3-stg.escholarship.org'
+  hostedzone: Z0785260HHGAOA7BOZL6
