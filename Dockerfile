@@ -1,5 +1,5 @@
 # Use official Ruby image
-FROM ruby:3.1
+FROM ruby:3.3
 
 # Install dependencies
 RUN apt-get update -qq && apt-get install -y \
@@ -23,7 +23,12 @@ COPY package.json package-lock.json ./
 RUN npm install
 
 # Copy the rest of the app
-COPY . .
+COPY lib/ ./lib/
+COPY public/ ./public/
+COPY tools/ ./tools/
+COPY views/ ./views/
+COPY bin/ ./bin/
+COPY config.ru start.sh ./
 
 # Expose the default port
 EXPOSE 80
