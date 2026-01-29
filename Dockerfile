@@ -6,14 +6,22 @@ ARG RUBY_VERSION=3.3
 ###############################################
 # Stage 1 — Builder
 ###############################################
-FROM ruby:${RUBY_VERSION} AS builder
+#FROM ruby:${RUBY_VERSION} AS builder
+FROM public.ecr.aws/docker/library/ruby:$RUBY_VERSION-slim AS builder
 
 # Re-declare ARG inside the stage (Docker requirement)
 ARG RUBY_VERSION
 
 RUN apt-get update -qq && apt-get install -y \
   build-essential \
+  pkg-config \
   libmariadb-dev \
+  libssl-dev \
+  libxml2-dev \
+  libxslt-dev \
+  zlib1g-dev \
+  libffi-dev \
+  git \
   curl
 
 # Install Node.js 20
@@ -42,12 +50,18 @@ COPY config.ru start.sh ./
 ###############################################
 # Stage 2 — Runtime
 ###############################################
-FROM ruby:${RUBY_VERSION}
+#FROM ruby:${RUBY_VERSION}
+FROM public.ecr.aws/docker/library/ruby:$RUBY_VERSION-slim
 
 # Re-declare ARG inside this stage too
 ARG RUBY_VERSION
 
 RUN apt-get update -qq && apt-get install -y \
+  libssl3 \
+  libxml2 \
+  libxslt1.1 \
+  zlib1g \
+  libffi8 \
   libmariadb-dev \
   curl && \
   apt-get clean && rm -rf /var/lib/apt/lists/*
