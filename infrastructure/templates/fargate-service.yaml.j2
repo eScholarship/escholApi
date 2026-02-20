@@ -1,0 +1,342 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >
+    Creates a container to run escholAPI service for PAD
+
+{% set funcname = 'pad-escholapi-' + sceptre_user_data.environment %}
+
+Parameters:
+  Cpu:
+    Type: Number
+    Default: 8192
+    Description: CPU units for the task definition
+
+  Memory:
+    Type: Number
+    Default: 16384
+    Description: Memory (MiB) for the task definition
+  Dbuser: 
+    Type: String
+  Escholurl: 
+    Type: String
+  Submitserver: 
+    Type: String
+  Hostedzone: 
+    Type: String
+
+Resources:
+
+  # Our build script will place the container image in this ECR repo
+  ContainerRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: {{funcname}}
+
+  # We'll run the task in this Fargate cluster
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: {{funcname}}-cluster
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+      Tags:
+        - Key: Program
+          Value: pad
+        - Key: Service
+          Value: escholapi
+        - Key: Environment
+          Value: {{ sceptre_user_data.environment }}
+
+  # Fargate uses this role to set up, pull, and execute the container
+  ExecRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: {{funcname}}-ExecRole
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'
+      Policies:
+        - PolicyName: allow-fargate-to-set-up-func
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                Effect: Allow
+                Resource: !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/{{funcname}}
+              - Action: ecr:GetAuthorizationToken
+                Effect: Allow
+                Resource: "*"
+              - Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Effect: Allow
+                Resource: !GetAtt LogGroup.Arn
+
+  # The running container has this role, so whatever the function needs to do
+  # in AWS needs to be authorized here.
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: {{funcname}}-TaskRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+      Policies:
+        - PolicyName: allow-ssm-exec
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action:
+                  - ssmmessages:CreateControlChannel
+                  - ssmmessages:CreateDataChannel
+                  - ssmmessages:OpenControlChannel
+                  - ssmmessages:OpenDataChannel
+                Effect: Allow
+                Resource: "*"
+        - PolicyName: allow-exec-logging
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action: logs:DescribeLogGroups
+                Effect: Allow
+                Resource: "*"
+              - Action:
+                  - logs:CreateLogStream
+                  - logs:DescribeLogStreams
+                  - logs:PutLogEvents
+                Effect: Allow
+                Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:{{funcname}}-logs:*
+
+  # Logs from the function will go here
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: {{funcname}}-logs
+      RetentionInDays: 7
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+
+  # Define details about the task: container source, needed resources, etc.
+  TaskDef:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      ContainerDefinitions:
+        - Essential: true
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{funcname}}:latest
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-stream-prefix: {{funcname}}
+              awslogs-region: !Ref AWS::Region
+          Name: {{funcname}}-TaskDef
+          PortMappings:
+            - ContainerPort: 80
+              HostPort: 80
+          Environment:
+          {% if sceptre_user_data.environment == 'stg' %} 
+            - Name: ACCESS_COOKIE
+              Value: {% raw %}'{{resolve:secretsmanager:pad-escholapi-stg:SecretString:access_cookie}}'{% endraw %}
+          {% endif %}
+            - Name: ESCHOL_DB_DATABASE
+              Value: {{ 'eschol' if sceptre_user_data.environment == 'prd' else 'eschol_test' }}
+            - Name: ESCHOL_DB_HOST
+              Value: {% raw %}'{{resolve:secretsmanager:pad-escholapi-{% endraw %}{{sceptre_user_data.environment}}{% raw %}:SecretString:db_host}}'{% endraw %}
+            - Name: ESCHOL_DB_PASSWORD
+              Value: {% raw %}'{{resolve:secretsmanager:pad-escholapi-{% endraw %}{{ sceptre_user_data.environment }}{% raw %}:SecretString:db_password}}'{% endraw %}
+            - Name: ESCHOL_DB_PORT
+              Value: '3306'
+            - Name: ESCHOL_DB_USERNAME
+              Value: !Ref Dbuser
+            - Name: ESCHOL_FRONTEND_URL
+              Value: !Ref Escholurl
+            - Name: ESCHOL_PRIV_API_KEY
+              Value: {% raw %}'{{resolve:secretsmanager:pad-escholapi-{% endraw %}{{ sceptre_user_data.environment }}{% raw %}:SecretString:priv_key}}'{% endraw %}
+            - Name: SUBMIT_SERVER
+              Value: !Ref Submitserver
+            - Name: SUBMIT_SSH_KEY
+              Value: {% raw %}'{{resolve:secretsmanager:pad-escholapi-{% endraw %}{{ sceptre_user_data.environment }}{% raw %}:SecretString:ssh_key}}'{% endraw %}
+            - Name: SUBMIT_USER
+              Value: 'eschol'
+            - Name: BUNDLE_WITHOUT
+              Value: 'test:development'
+            - Name: BUNDLER_DEPLOYMENT_MODE
+              Value: 'true'
+            - Name: RACK_ENV
+              Value: 'production'
+            - Name: RAILS_SKIP_ASSET_COMPILATION
+              Value: 'false'
+            - Name: RAILS_SKIP_MIGRATIONS
+              Value: 'false'
+      Cpu: !Ref Cpu
+      Memory: !Ref Memory
+      EphemeralStorage:
+        SizeInGiB: 101   # 100 GB disk
+      ExecutionRoleArn: !GetAtt ExecRole.Arn
+      Family: {{funcname}}-TaskDef
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      Tags:
+        - Key: Program
+          Value: pad
+        - Key: Service
+          Value: escholapi
+        - Key: Environment
+          Value: {{ sceptre_user_data.environment }}
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: {{ funcname }}.padprd.cdlib.net
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: {{ funcname }}.padprd.cdlib.net
+          HostedZoneId: !Ref Hostedzone 
+
+  DNSRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref Hostedzone
+      Name: {{ funcname }}.padprd.cdlib.net
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt LoadBalancer.DNSName
+        HostedZoneId: !GetAtt LoadBalancer.CanonicalHostedZoneID
+
+
+  Service:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - ListenerHTTP
+      - ListenerHTTPS
+    Properties:
+      ServiceName: {{funcname}}-Service
+      Cluster: !Ref Cluster
+      TaskDefinition: !Ref TaskDef
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 100
+        MaximumPercent: 200
+        DeploymentCircuitBreaker:
+          Enable: true
+          Rollback: true
+      DesiredCount: 1
+      # This may need to be adjusted if the container takes a while to start up
+      HealthCheckGracePeriodSeconds: 90
+      LaunchType: FARGATE
+      EnableExecuteCommand: true
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          # change to DISABLED if you're using private subnets that have access to a NAT gateway
+          AssignPublicIp: ENABLED
+          Subnets:
+            - subnet-3ae8a860  # uc-west-2c
+            - subnet-fce472b7  # uc-west-2a
+          SecurityGroups:
+            - sg-ac724bdd # cdl-pub-standardsg-stack-standardsg-19KQJPZ2LI0EB
+
+      LoadBalancers:
+        - ContainerName: {{funcname}}-TaskDef
+          ContainerPort: 80
+          TargetGroupArn: !Ref TargetGroup
+      Tags:
+        - Key: Program
+          Value: pad
+        - Key: Service
+          Value: escholapi
+        - Key: Environment
+          Value: {{ sceptre_user_data.environment }}
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 60
+      # will look for a 200 status code by default unless specified otherwise
+      HealthCheckPath: "/chk"
+      HealthCheckTimeoutSeconds: 20
+      UnhealthyThresholdCount: 4
+      HealthyThresholdCount: 2
+      Name: {{funcname}}-tg
+      Port: 80
+      Protocol: HTTP
+      Matcher:
+        HttpCode: "200-401"
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 60 # default is 300
+      TargetType: ip
+      VpcId: vpc-0e203277  # PAD-Prd-VPC
+
+  ListenerHTTP:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - RedirectConfig:
+            Host: "#{host}"
+            Path: "/#{path}"
+            Port: 443
+            Protocol: "HTTPS"
+            Query: "#{query}"
+            StatusCode: HTTP_301
+          Type: redirect
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+
+  ListenerHTTPS:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref TargetGroup
+          Type: forward
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      # need to update this
+      Certificates:
+        - CertificateArn: !Ref Certificate
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      LoadBalancerAttributes:
+        # this is the default, but is specified here in case it needs to be changed
+        - Key: idle_timeout.timeout_seconds
+          Value: 60
+      Name: {{funcname}}-lb
+      # "internal" is also an option
+      Scheme: internet-facing
+      SecurityGroups:
+        - sg-ac724bdd # cdl-pub-standardsg-stack-standardsg-19KQJPZ2LI0EB
+        - sg-03ce91dae9aab76aa # cdl-pub-httpsg-stack-httpanysg-pJMFIyClC4Wa
+      Subnets:
+        - subnet-3ae8a860  # uc-west-2c
+        - subnet-fce472b7  # uc-west-2a
+      Tags:
+        - Key: Program
+          Value: pad
+        - Key: Service
+          Value: escholapi
+        - Key: Environment
+          Value: {{ sceptre_user_data.environment }}
+
+{% if sceptre_user_data.environment == 'prd' %}
+  WafAssociation:
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties:
+      ResourceArn: !Ref LoadBalancer
+      WebACLArn: {{ sceptre_user_data.waf }}
+{% endif %} # if sceptre_user_data.environment == 'prd' %}
