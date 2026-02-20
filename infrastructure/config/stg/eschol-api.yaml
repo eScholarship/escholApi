@@ -2,9 +2,12 @@ template:
   type: file
   path: fargate-service.yaml.j2
 stack_name: pad-eschol-api-stg
+parameters:
+  Cpu: 2048
+  Memory: 16384
+  Dbuser: escholrw
+  Escholurl: 'http://pub-jschol2-stg.escholarship.org'
+  Submitserver: 'pub-submit3-stg.escholarship.org'
+  Hostedzone: Z0785260HHGAOA7BOZL6
 sceptre_user_data:
   environment: stg
-  dbuser: escholrw
-  escholurl: 'http://pub-jschol2-stg.escholarship.org'
-  submitserver: 'pub-submit3-stg.escholarship.org'
-  hostedzone: Z0785260HHGAOA7BOZL6
