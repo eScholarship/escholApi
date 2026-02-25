@@ -1018,6 +1018,16 @@ class ItemsData
     query = query.order(ascending ? field : Sequel::desc(field),
                         ascending ? :id   : Sequel::desc(:id))
 
+    # If the query sorts by updated, override the FROM clause to include updated indexes
+    # This is required to prevent OOM errors on the MySQL sort buffer
+    if (args[:order] =~ /UPDATED/)
+      if ascending
+        query = query.from(Sequel.lit("`items` FORCE INDEX(items_updated_id_asc_index)"))
+      else
+        query = query.from(Sequel.lit("`items` FORCE INDEX(items_updated_id_desc_index)"))
+      end
+    end
+
     # Apply limits as specified
     if args[:before]
       # Exclusive ('<'), so that queries like "after: 2018-11-01 before: 2018-12-01" work as user expects.
