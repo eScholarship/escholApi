@@ -1022,9 +1022,9 @@ class ItemsData
     # This is required to prevent OOM errors on the MySQL sort buffer
     if (args[:order] =~ /UPDATED/)
       if ascending
-        query = query.from(Sequel.lit("`items` FORCE INDEX(items_updated_id_asc_index)"))
+        query = query.from(Sequel.lit("`items` FORCE INDEX(items_updated_id_asc_index, PRIMARY)"))
       else
-        query = query.from(Sequel.lit("`items` FORCE INDEX(items_updated_id_desc_index)"))
+        query = query.from(Sequel.lit("`items` FORCE INDEX(items_updated_id_desc_index, PRIMARY)"))
       end
     end
 
