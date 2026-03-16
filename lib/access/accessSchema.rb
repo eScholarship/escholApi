@@ -1022,9 +1022,9 @@ class ItemsData
     # This is required to prevent OOM errors on the MySQL sort buffer
     if (args[:order] =~ /UPDATED/)
       if ascending
-        query = query.from(Sequel.lit("`items` FORCE INDEX(items_updated_id_asc_index, PRIMARY)"))
+        query = query.from(Sequel.lit("`items` FORCE INDEX(items_updated_id_asc_index)"))
       else
-        query = query.from(Sequel.lit("`items` FORCE INDEX(items_updated_id_desc_index, PRIMARY)"))
+        query = query.from(Sequel.lit("`items` FORCE INDEX(items_updated_id_desc_index)"))
       end
     end
 
@@ -1074,6 +1074,7 @@ class ItemsData
   end
 
   def total
+    @baseQuerty = @baseQuerty.from(Sequel.lit("`items`"))
     @count ||= @baseQuery.count
   end
 
