@@ -37,7 +37,7 @@ def serveUnitRSS(unitID)
     descrip = item['abstract'] && !item['abstract'].strip.empty? ? item['abstract'] : item['title']
     descrip.size > 1000 and descrip = descrip[0..((descrip.index(' ',990) || 1000)-1)] + "..."
     date = DateTime.parse(item['added']).rfc2822
-    authors = item['authors']['nodes']
+    authors = item.dig('authors', 'nodes') || []
  
     itemChunks << xmlGen('''
       <item>
