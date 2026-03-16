@@ -1018,14 +1018,15 @@ class ItemsData
     query = query.order(ascending ? field : Sequel::desc(field),
                         ascending ? :id   : Sequel::desc(:id))
 
-    # If the query sorts by updated, override the FROM clause to include updated indexes
-    # This is required to prevent OOM errors on the MySQL sort buffer
-    if (args[:order] =~ /UPDATED/)
-      if ascending
-        query = query.from(Sequel.lit("`items` FORCE INDEX(items_updated_id_asc_index)"))
-      else
-        query = query.from(Sequel.lit("`items` FORCE INDEX(items_updated_id_desc_index)"))
-      end
+    # include indexes in the FROM clause.
+    # This is required to prevent OOM errors on the MySQL sort buffer.
+    case args[:order]
+    when "UPDATED_ASC"
+      query = query.from(Sequel.lit("`items` FORCE INDEX(items_updated_id_asc_index)"))
+    when "UPDATED_DESC"
+      query = query.from(Sequel.lit("`items` FORCE INDEX(items_updated_id_desc_index)"))
+    when "ADDED_ASC", "ADDED_DESC"
+      query = query.from(Sequel.lit("`items` FORCE INDEX(items_status_added_id_index)"))
     end
 
     # Apply limits as specified
@@ -1059,6 +1060,7 @@ class ItemsData
 
     # Record the base query so if 'total' is requested we count without paging
     @baseQuery = query
+    
     # If this is a 'more' query, add extra constraints so we get the next page (that is,
     # starting just after the end of the last page)
     if args[:lastID]
@@ -1074,7 +1076,8 @@ class ItemsData
   end
 
   def total
-    @baseQuerty = @baseQuerty.from(Sequel.lit("`items`"))
+    # Remove indexes from count(*) queries.
+    @baseQuery = @baseQuery.from(Sequel.lit("`items`"))
     @count ||= @baseQuery.count
   end
 
