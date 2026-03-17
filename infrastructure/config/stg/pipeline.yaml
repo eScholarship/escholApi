@@ -1,0 +1,12 @@
+template:
+  type: file
+  path: pipeline.yaml.j2
+stack_name: pad-escholapi-pipeline-stg
+parameters:
+  GitHubRepo: https://github.com/eScholarship/escholApi
+  Namespace: pad-escholapi-stg
+  Branch: master
+  ECRRepo: pad-escholapi-stg
+  ECSClusterName: pad-escholapi-stg-cluster
+  ECSServiceName: pad-escholapi-stg-Service
+  

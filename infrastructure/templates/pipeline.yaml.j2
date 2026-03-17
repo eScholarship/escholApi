@@ -1,0 +1,234 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Pipeline using CodeBuild as source for public GitHub repo, building Docker image and forcing ECS deploy"
+
+Parameters:
+  GitHubRepo:
+    Type: String
+    Description: "Public GitHub repository URL (e.g. https://github.com/user/repo)"
+
+  Namespace:
+    Type: String
+    Description: "Namespace or project name"
+
+  Branch:
+    Type: String
+    Default: main
+    Description: "GitHub branch to build from"
+
+  ECRRepo:
+    Type: String
+    Description: "Existing ECR repository name"
+
+  ECSClusterName:
+    Type: String
+    Description: "ECS Cluster name"
+
+  ECSServiceName:
+    Type: String
+    Description: "ECS Service name to force deploy"
+
+Resources:
+  ########################################
+  # Artifacts bucket
+  ########################################
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${Namespace}-pipeline-artifacts"
+
+  ########################################
+  # IAM Roles
+  ########################################
+
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: CodeBuildECRPermissions
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:CompleteLayerUpload
+                  - ecr:UploadLayerPart
+                  - ecr:InitiateLayerUpload
+                  - ecr:PutImage
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+
+  CodePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: CodePipelinePermissions
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - codebuild:StartBuild
+                  - codebuild:BatchGetBuilds
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - ecs:UpdateService
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource: "*"
+
+  ########################################
+  # CodeBuild Project
+  ########################################
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub "${Namespace}-docker-build"
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:7.0
+        PrivilegedMode: true
+        EnvironmentVariables:
+          - Name: ECR_REPO
+            Value: !Ref ECRRepo
+          - Name: GITHUB_REPO
+            Value: !Ref GitHubRepo
+          - Name: BRANCH
+            Value: !Ref Branch
+      Source:
+        Type: NO_SOURCE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            pre_build:
+              commands:
+                - echo Cloning public GitHub repo...
+                - git clone --branch $BRANCH $GITHUB_REPO src
+                - cd src
+                - echo Logging in to Amazon ECR...
+                - >
+                  aws ecr get-login-password |
+                  docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+                - REPO_URI=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}
+            build:
+              commands:
+                - echo Building Docker image...
+                - docker build -t $REPO_URI:latest .
+            post_build:
+              commands:
+                - echo Pushing Docker image...
+                - docker push $REPO_URI:latest
+
+  DeployProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:7.0
+      Source:
+        Type: NO_SOURCE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            build:
+            commands:
+              - aws ecs update-service \
+                --cluster ${ECS_CLUSTER} \
+                --service ${ECS_SERVICE} \
+                --force-new-deployment
+            EnvironmentVariables:
+              - Name: ECS_CLUSTER
+                Value: !Ref ECSClusterName
+              - Name: ECS_SERVICE
+                Value: !Ref ECSServiceName
+
+  ########################################
+  # CodePipeline
+  ########################################
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      RoleArn: !GetAtt CodePipelineRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref ArtifactBucket
+
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: EmptySource
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: S3
+                Version: "1"
+              Configuration:
+                S3Bucket: !Ref ArtifactBucket
+                S3ObjectKey: dummy.zip
+              OutputArtifacts:
+                - Name: SourceOutput
+        - Name: Build
+          Actions:
+            - Name: DockerBuild
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: "1"
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+              InputArtifacts:
+                - Name: SourceOutput
+        - Name: Deploy
+          Actions:
+            - Name: ForceDeployECS
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: "1"
+              Configuration:
+                ProjectName: !Ref DeployProject
+              InputArtifacts:
+                - Name: SourceOutput
+
+Outputs:
+  PipelineName:
+    Value: !Ref Pipeline
+    Description: "Name of the CodePipeline"
