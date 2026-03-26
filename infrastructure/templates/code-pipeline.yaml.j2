@@ -1,0 +1,375 @@
+Description: "Pipeline using CodeBuild as source for public GitHub repo, building Docker image and forcing ECS deploy"
+
+Parameters:
+  GitHubRepo:
+    Type: String
+    Description: "Public GitHub repository URL (e.g. https://github.com/user/repo)"
+
+  Namespace:
+    Type: String
+    Description: "Namespace or project name"
+
+  Branch:
+    Type: String
+    Default: main
+    Description: "GitHub branch to build from"
+
+  ECRRepo:
+    Type: String
+    Description: "Existing ECR repository name"
+
+  ECSClusterName:
+    Type: String
+    Description: "ECS Cluster name"
+
+  ECSServiceName:
+    Type: String
+    Description: "ECS Service name to force deploy"
+
+Resources:
+
+  ## Code Build Stuff ##
+  IAMCodeBuildRole:  # IAM role with embedded assume role and IAM policy attached.
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:  # Assume Role Policy Document.
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codebuild.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser  ## Managed policy used for ECR.
+      RoleName: {{sceptre_user_data.genericName}}-codebuild
+
+  IAMCodeBuildPolicy: ## IAM policy for {{sceptre_user_data.genericName}}-codebuild IAM role.
+    Type: AWS::IAM::RolePolicy
+    Properties:
+      PolicyName: {{sceptre_user_data.genericName}}-codebuild-policy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Action:
+            - 'logs:CreateLogGroup'
+            - 'logs:CreateLogStream'
+            - 'logs:PutLogEvents'
+            Resource:
+            - 'arn:aws:logs:us-west-2:{{sceptre_user_data.accountId}}:log-group:/aws/codebuild/{{sceptre_user_data.genericName}}-codebuild-project'
+            - 'arn:aws:logs:us-west-2:{{sceptre_user_data.accountId}}:log-group:/aws/codebuild/{{sceptre_user_data.genericName}}-codebuild-project:*'
+          - Effect: 'Allow'
+            Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:GetObjectVersion
+            - s3:GetBucketAcl
+            - s3:GetBucketLocation
+            Resource:
+              Fn::Sub:
+              - 'arn:aws:s3:::${BucketName}/*'
+              - BucketName: !ImportValue s3BucketName-{{sceptre_user_data.serviceName}}
+          - Effect: 'Allow'
+            Action:
+            - codebuild:CreateReportGroup
+            - codebuild:CreateReport
+            - codebuild:UpdateReport
+            - codebuild:BatchPutTestCases
+            - codebuild:BatchPutCodeCoverages
+            Resource:
+            - 'arn:aws:codebuild:us-west-2:{{sceptre_user_data.accountId}}:report-group/{{sceptre_user_data.genericName}}-codebuild-project-*'
+      RoleName:
+        Ref: IAMCodeBuildRole
+
+  CodeBuild:  # Create the Codebuild project
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: '{{sceptre_user_data.genericName}}-codebuild-project'
+      Description: '{{sceptre_user_data.genericName}}-codebuild-project'
+      QueuedTimeoutInMinutes: 5
+      Artifacts:
+        Type: 'NO_ARTIFACTS'
+      ConcurrentBuildLimit: 1
+      Cache:
+        Type: S3
+        Location:
+          !ImportValue s3BucketName-{{sceptre_user_data.serviceName}}
+      Environment:
+        ComputeType: 'BUILD_GENERAL1_SMALL'
+        Image: 'aws/codebuild/standard:7.0'  # This is Ubuntu 22.04. https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-available.html
+        ImagePullCredentialsType: 'CODEBUILD'
+        PrivilegedMode: true  # This enables docker daemon to run in the container; basically this container is building a container inside of it.
+        Type: 'LINUX_CONTAINER'
+      LogsConfig:
+        CloudWatchLogs:
+          GroupName: '/aws/codebuild/{{sceptre_user_data.genericName}}-codebuild-project'
+          Status: ENABLED
+      ServiceRole:
+        Ref: IAMCodeBuildRole
+      Source:
+        Type: 'GITHUB'
+        Location: 'https://github.com/cdlib/{{sceptre_user_data.genericName}}.git'
+
+
+  ## Code Pipe Line Stuff ##
+  IAMCodePipeLineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:  # Assume Role Policy Document.
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codepipeline.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      RoleName: {{sceptre_user_data.genericName}}-codepipeline
+
+  IAMCodePipeLinePolicy: # IAM policy for {{sceptre_user_data.genericName}}-codepipeline IAM role.
+    Type: AWS::IAM::RolePolicy
+    Properties:
+      PolicyName: {{sceptre_user_data.genericName}}-codepipeline-policy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Action:
+            - iam:PassRole
+            Resource:
+            - '*'
+            Condition:
+              StringEqualsIfExists:
+                iam:PassedToService:
+                - cloudformation.amazonaws.com
+                - elasticbeanstalk.amazonaws.com
+                - ec2.amazonaws.com
+                - ecs-tasks.amazonaws.com
+          - Effect: 'Allow'
+            Action:
+            - codecommit:CancelUploadArchive
+            - codecommit:GetBranch
+            - codecommit:GetCommit
+            - codecommit:GetRepository
+            - codecommit:GetUploadArchiveStatus
+            - codecommit:UploadArchive
+            Resource:
+            - '*'
+          - Effect: 'Allow'
+            Action:
+            - codedeploy:CreateDeployment
+            - codedeploy:GetApplication
+            - codedeploy:GetApplicationRevision
+            - codedeploy:GetDeployment
+            - codedeploy:GetDeploymentConfig
+            - codedeploy:RegisterApplicationRevision
+            Resource:
+            - '*'
+          - Effect: 'Allow'
+            Action:
+            - codestar-connections:UseConnection
+            Resource:
+            - '*'
+          - Effect: 'Allow'
+            Action:
+            - elasticbeanstalk:*
+            - ec2:*
+            - elasticloadbalancing:*
+            - autoscaling:*
+            - cloudwatch:*
+            - s3:*
+            - sns:*
+            - cloudformation:*
+            - rds:*
+            - sqs:*
+            - ecs:*
+            Resource:
+            - '*'
+          - Effect: 'Allow'
+            Action:
+            - lambda:InvokeFunction
+            - lambda:ListFunctions
+            Resource:
+            - '*'
+          - Effect: 'Allow'
+            Action:
+            - opsworks:CreateDeployment
+            - opsworks:DescribeApps
+            - opsworks:DescribeCommands
+            - opsworks:DescribeDeployments
+            - opsworks:DescribeInstances
+            - opsworks:DescribeStacks
+            - opsworks:UpdateApp
+            - opsworks:UpdateStack
+            Resource:
+            - '*'
+          - Effect: 'Allow'
+            Action:
+            - cloudformation:CreateStack
+            - cloudformation:DeleteStack
+            - cloudformation:DescribeStacks
+            - cloudformation:UpdateStack
+            - cloudformation:CreateChangeSet
+            - cloudformation:DeleteChangeSet
+            - cloudformation:DescribeChangeSet
+            - cloudformation:ExecuteChangeSet
+            - cloudformation:SetStackPolicy
+            - cloudformation:ValidateTemplate
+            Resource:
+            - '*'
+          - Effect: 'Allow'
+            Action:
+            - codebuild:BatchGetBuilds
+            - codebuild:StartBuild
+            - codebuild:BatchGetBuildBatches
+            - codebuild:StartBuildBatch
+            Resource:
+            - '*'
+          - Effect: Allow
+            Action:
+            - devicefarm:ListProjects
+            - devicefarm:ListDevicePools
+            - devicefarm:GetRun
+            - devicefarm:GetUpload
+            - devicefarm:CreateUpload
+            - devicefarm:ScheduleRun
+            Resource: '*'
+          - Effect: Allow
+            Action:
+            - servicecatalog:ListProvisioningArtifacts
+            - servicecatalog:CreateProvisioningArtifact
+            - servicecatalog:DescribeProvisioningArtifact
+            - servicecatalog:DeleteProvisioningArtifact
+            - servicecatalog:UpdateProduct
+            Resource: '*'
+          - Effect: 'Allow'
+            Action:
+            - cloudformation:ValidateTemplate
+            Resource:
+            - '*'
+          - Effect: 'Allow'
+            Action:
+            - ecr:DescribeImages
+            Resource:
+            - '*'
+          - Effect: 'Allow'
+            Action:
+            - states:DescribeExecution
+            - states:DescribeStageMachine
+            - states:StartExecution
+            Resource:
+            - '*'
+          - Effect: 'Allow'
+            Action:
+            - appconfig:StartDeployment
+            - appconfig:StopDeployment
+            - appconfig:GetDeployment
+            Resource:
+            - '*'
+      RoleName:
+        Ref: IAMCodePipeLineRole
+
+  CodePipeLine:  # Create Codepipeline.
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: '{{sceptre_user_data.genericName}}-pipeline'
+      RoleArn:
+        Fn::GetAtt:
+        - IAMCodePipeLineRole
+        - Arn
+      ArtifactStore:
+        Type: S3
+        Location:
+          !ImportValue s3BucketName-{{sceptre_user_data.serviceName}}
+      Stages:
+        - Name: 'Source'  # First phase is to source from Github. https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference-CodestarConnectionSource.html
+          Actions:
+            - Name: 'Source'
+              ActionTypeId:
+                Category: Source
+                Owner: 'AWS'
+                Provider: 'CodeStarSourceConnection'
+                Version: '1'
+              Configuration:
+                ConnectionArn: '{{sceptre_user_data.codeStarConnection}}'
+                FullRepositoryId: 'cdlib/{{sceptre_user_data.genericName}}'
+                BranchName: 'main'
+              OutputArtifacts:
+                - Name: SourceArtifact
+        - Name: 'Build'  # Second phase is to Build from Source. https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference-CodeBuild.html
+          Actions:
+            - Name: 'Build'
+              InputArtifacts:
+              - Name: SourceArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: 'AWS'
+                Provider: 'CodeBuild'
+                Version: '1'
+              Configuration:
+                ProjectName:
+                  Ref: CodeBuild
+              OutputArtifacts:
+                - Name: BuildArtifact
+        - Name: 'Deploy'  # Third phase is to Deploy from Build. https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference-ECS.html
+          Actions:
+            - Name: 'Deploy'
+              InputArtifacts:
+              - Name: BuildArtifact
+              ActionTypeId:
+                Category: Deploy
+                Owner: 'AWS'
+                Provider: 'ECS'
+                Version: '1'
+              Configuration:
+                ClusterName: !ImportValue ecsClusterName-{{sceptre_user_data.serviceName}}
+                ServiceName: !ImportValue ecsServiceName-{{sceptre_user_data.serviceName}}
+                DeploymentTimeout: '15'
+
+  ## EventBridge Stuff ##
+  IAMEventBridgeRole:  # IAM role with embedded assume role and IAM policy attached.
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:  # Assume Role Policy Document.
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - scheduler.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      RoleName: {{sceptre_user_data.genericName}}-rebuild
+
+  IAMEventBridgePolicy: # IAM policy.
+    Type: AWS::IAM::RolePolicy
+    Properties:
+      PolicyName: {{sceptre_user_data.genericName}}-rebuild-policy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Action:
+            - 'codepipeline:StartPipelineExecution'
+            Resource:
+              - 'arn:aws:codepipeline:us-west-2:{{sceptre_user_data.accountId}}:{{sceptre_user_data.genericName}}-pipeline'
+      RoleName:
+        Ref: IAMEventBridgeRole
+
+  EventBridgeScheduler:  # Runs the codepipeline for patching.
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: '{{sceptre_user_data.genericName}}-rebuild'
+      Description: "This will invoke AWScodepipeline of the container build/deployment. We're doing this to make sure the container image is always updated with the latest patching as well as make sure there is nothing stale in the running container."
+      FlexibleTimeWindow:
+        Mode: 'FLEXIBLE'
+        MaximumWindowInMinutes: 1
+      ScheduleExpression: cron(0 11 ? * 4 *)  # This is in UTC.
+      State: ENABLED
+      Target:
+        Arn:
+          !Sub "arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${CodePipeLine}"  # "Fn::GetAtt:" is not supported with CodePipeLine; whack!
+        RoleArn:
+          !GetAtt IAMEventBridgeRole.Arn
