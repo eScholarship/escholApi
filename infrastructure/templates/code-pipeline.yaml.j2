@@ -26,7 +26,26 @@ Parameters:
     Type: String
     Description: "ECS Service name to force deploy"
 
+  codeStarConnection:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: "/codepipeline/codeconnection/arn"
+
+  GenericName:
+    Type: String
+    Description: "generic name for the service"
+
 Resources:
+  ########################################
+  # Artifacts bucket
+  ########################################
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${Namespace}-pipeline-artifacts"
+
+  ########################################
+  # IAM Roles
+  ########################################
 
   ## Code Build Stuff ##
   IAMCodeBuildRole:  # IAM role with embedded assume role and IAM policy attached.
@@ -58,8 +77,8 @@ Resources:
             - 'logs:CreateLogStream'
             - 'logs:PutLogEvents'
             Resource:
-            - 'arn:aws:logs:us-west-2:{{sceptre_user_data.accountId}}:log-group:/aws/codebuild/{{sceptre_user_data.genericName}}-codebuild-project'
-            - 'arn:aws:logs:us-west-2:{{sceptre_user_data.accountId}}:log-group:/aws/codebuild/{{sceptre_user_data.genericName}}-codebuild-project:*'
+            - !Sub 'arn:aws:logs:us-west-2:${AWS::AccountId}:log-group:/aws/codebuild/${GenericName}-codebuild-project'
+            - !Sub 'arn:aws:logs:us-west-2:${AWS::AccountId}:log-group:/aws/codebuild/${GenericName}-codebuild-project:*'
           - Effect: 'Allow'
             Action:
             - s3:PutObject
@@ -67,10 +86,7 @@ Resources:
             - s3:GetObjectVersion
             - s3:GetBucketAcl
             - s3:GetBucketLocation
-            Resource:
-              Fn::Sub:
-              - 'arn:aws:s3:::${BucketName}/*'
-              - BucketName: !ImportValue s3BucketName-{{sceptre_user_data.serviceName}}
+            Resource: !GetAtt ArtifactBucket.Arn
           - Effect: 'Allow'
             Action:
             - codebuild:CreateReportGroup
@@ -79,7 +95,7 @@ Resources:
             - codebuild:BatchPutTestCases
             - codebuild:BatchPutCodeCoverages
             Resource:
-            - 'arn:aws:codebuild:us-west-2:{{sceptre_user_data.accountId}}:report-group/{{sceptre_user_data.genericName}}-codebuild-project-*'
+            - !Sub 'arn:aws:codebuild:us-west-2:${AWS::AccountId}:report-group/${GenericName}-codebuild-project-*'
       RoleName:
         Ref: IAMCodeBuildRole
 
@@ -94,14 +110,16 @@ Resources:
       ConcurrentBuildLimit: 1
       Cache:
         Type: S3
-        Location:
-          !ImportValue s3BucketName-{{sceptre_user_data.serviceName}}
+        Location: !Ref ArtifactBucket
       Environment:
         ComputeType: 'BUILD_GENERAL1_SMALL'
         Image: 'aws/codebuild/standard:7.0'  # This is Ubuntu 22.04. https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-available.html
         ImagePullCredentialsType: 'CODEBUILD'
         PrivilegedMode: true  # This enables docker daemon to run in the container; basically this container is building a container inside of it.
         Type: 'LINUX_CONTAINER'
+        EnvironmentVariables:
+          - Name: AWS_ACCOUNT_ID
+            Value: !Ref "AWS::AccountId"
       LogsConfig:
         CloudWatchLogs:
           GroupName: '/aws/codebuild/{{sceptre_user_data.genericName}}-codebuild-project'
@@ -110,8 +128,7 @@ Resources:
         Ref: IAMCodeBuildRole
       Source:
         Type: 'GITHUB'
-        Location: 'https://github.com/cdlib/{{sceptre_user_data.genericName}}.git'
-
+        Location: !Ref GitHubRepo
 
   ## Code Pipe Line Stuff ##
   IAMCodePipeLineRole:
@@ -281,8 +298,7 @@ Resources:
         - Arn
       ArtifactStore:
         Type: S3
-        Location:
-          !ImportValue s3BucketName-{{sceptre_user_data.serviceName}}
+        Location: !Ref ArtifactBucket
       Stages:
         - Name: 'Source'  # First phase is to source from Github. https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference-CodestarConnectionSource.html
           Actions:
@@ -293,9 +309,9 @@ Resources:
                 Provider: 'CodeStarSourceConnection'
                 Version: '1'
               Configuration:
-                ConnectionArn: '{{sceptre_user_data.codeStarConnection}}'
-                FullRepositoryId: 'cdlib/{{sceptre_user_data.genericName}}'
-                BranchName: 'main'
+                ConnectionArn: !Ref codeStarConnection
+                FullRepositoryId: 'escholarship/{{sceptre_user_data.genericName}}'
+                BranchName: !Ref Branch
               OutputArtifacts:
                 - Name: SourceArtifact
         - Name: 'Build'  # Second phase is to Build from Source. https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference-CodeBuild.html
@@ -324,8 +340,8 @@ Resources:
                 Provider: 'ECS'
                 Version: '1'
               Configuration:
-                ClusterName: !ImportValue ecsClusterName-{{sceptre_user_data.serviceName}}
-                ServiceName: !ImportValue ecsServiceName-{{sceptre_user_data.serviceName}}
+                ClusterName: !Ref ECSClusterName
+                ServiceName: !Ref ECSServiceName
                 DeploymentTimeout: '15'
 
   ## EventBridge Stuff ##
@@ -353,8 +369,7 @@ Resources:
           - Effect: 'Allow'
             Action:
             - 'codepipeline:StartPipelineExecution'
-            Resource:
-              - 'arn:aws:codepipeline:us-west-2:{{sceptre_user_data.accountId}}:{{sceptre_user_data.genericName}}-pipeline'
+            Resource: !Sub "arn:aws:codepipeline:us-west-2:${AWS::AccountId}:${GenericName}-pipeline"
       RoleName:
         Ref: IAMEventBridgeRole
 
