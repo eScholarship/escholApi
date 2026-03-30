@@ -44,7 +44,6 @@ COPY lib/ ./lib/
 COPY public/ ./public/
 COPY tools/ ./tools/
 COPY views/ ./views/
-COPY bin/ ./bin/
 COPY config.ru start.sh ./
 
 ###############################################

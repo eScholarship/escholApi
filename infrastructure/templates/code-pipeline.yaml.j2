@@ -86,7 +86,9 @@ Resources:
             - s3:GetObjectVersion
             - s3:GetBucketAcl
             - s3:GetBucketLocation
-            Resource: !GetAtt ArtifactBucket.Arn
+            Resource:
+            - !GetAtt ArtifactBucket.Arn
+            - !Sub "${ArtifactBucket.Arn}/*"
           - Effect: 'Allow'
             Action:
             - codebuild:CreateReportGroup
