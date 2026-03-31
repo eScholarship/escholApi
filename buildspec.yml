@@ -6,7 +6,7 @@ phases:
       - echo Logging in to Amazon ECR...
       - aws --version
       - aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.us-west-2.amazonaws.com
-      - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.us-west-2.amazonaws.com/programname-servicename-env
+      - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.us-west-2.amazonaws.com/pad-escholapi-stg
   build:
     commands:
       - echo Build started on `date`
@@ -18,6 +18,6 @@ phases:
       - echo Pushing the Docker images...
       - docker push $REPOSITORY_URI:latest
       - echo Writing image definitions file...
-      - printf '[{"name":"programname-servicename-env","imageUri":"%s"}]' $REPOSITORY_URI:latest > imagedefinitions.json
+      - printf '[{"name":"pad-escholapi-stg","imageUri":"%s"}]' $REPOSITORY_URI:latest > imagedefinitions.json
 artifacts:
   files: imagedefinitions.json
