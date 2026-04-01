@@ -46,6 +46,9 @@ COPY tools/ ./tools/
 COPY views/ ./views/
 COPY config.ru start.sh ./
 
+# Create the symlink inside the container
+RUN ln -s ../node_modules public/node_modules
+
 ###############################################
 # Stage 2 — Runtime
 ###############################################
