@@ -30,6 +30,26 @@ Resources:
     Type: AWS::ECR::Repository
     Properties:
       RepositoryName: {{funcname}}
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Expire untagged images after 1 day",
+                "selection": {
+                  "tagStatus": "untagged",
+                  "countType": "sinceImagePushed",
+                  "countUnit": "days",
+                  "countNumber": 7
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+
 
   # We'll run the task in this Fargate cluster
   Cluster:
