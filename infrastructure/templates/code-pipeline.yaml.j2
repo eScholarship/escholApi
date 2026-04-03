@@ -42,6 +42,14 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub "${Namespace}-pipeline-artifacts"
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldArtifacts
+            Status: Enabled
+            ExpirationInDays: 7
+            Prefix: ""   # Applies to all objects
+
+
 
   ########################################
   # IAM Roles
