@@ -236,35 +236,12 @@ Resources:
             - '*'
           - Effect: 'Allow'
             Action:
-            - cloudformation:CreateStack
-            - cloudformation:DeleteStack
-            - cloudformation:DescribeStacks
-            - cloudformation:UpdateStack
-            - cloudformation:CreateChangeSet
-            - cloudformation:DeleteChangeSet
-            - cloudformation:DescribeChangeSet
-            - cloudformation:ExecuteChangeSet
-            - cloudformation:SetStackPolicy
-            - cloudformation:ValidateTemplate
-            Resource:
-            - '*'
-          - Effect: 'Allow'
-            Action:
             - codebuild:BatchGetBuilds
             - codebuild:StartBuild
             - codebuild:BatchGetBuildBatches
             - codebuild:StartBuildBatch
             Resource:
             - '*'
-          - Effect: Allow
-            Action:
-            - devicefarm:ListProjects
-            - devicefarm:ListDevicePools
-            - devicefarm:GetRun
-            - devicefarm:GetUpload
-            - devicefarm:CreateUpload
-            - devicefarm:ScheduleRun
-            Resource: '*'
           - Effect: Allow
             Action:
             - servicecatalog:ListProvisioningArtifacts
