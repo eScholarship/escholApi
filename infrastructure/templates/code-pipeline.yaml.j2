@@ -34,10 +34,6 @@ Parameters:
     Type: AWS::SSM::Parameter::Value<String>
     Default: "/codepipeline/codeconnection/arn"
 
-  GenericName:
-    Type: String
-    Description: "generic name for the service"
-
 Resources:
   ########################################
   # Artifacts bucket
@@ -74,12 +70,12 @@ Resources:
               - 'sts:AssumeRole'
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser  ## Managed policy used for ECR.
-      RoleName: {{sceptre_user_data.genericName}}-codebuild
+      RoleName: !Sub "${Namespace}-codebuild"
 
-  IAMCodeBuildPolicy: ## IAM policy for {{sceptre_user_data.genericName}}-codebuild IAM role.
+  IAMCodeBuildPolicy: ## IAM policy for {Namespace}-codebuild IAM role.
     Type: AWS::IAM::RolePolicy
     Properties:
-      PolicyName: {{sceptre_user_data.genericName}}-codebuild-policy
+      PolicyName: !Sub "${Namespace}-codebuild-policy"
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -89,8 +85,8 @@ Resources:
             - 'logs:CreateLogStream'
             - 'logs:PutLogEvents'
             Resource:
-            - !Sub 'arn:aws:logs:us-west-2:${AWS::AccountId}:log-group:/aws/codebuild/${GenericName}-codebuild-project'
-            - !Sub 'arn:aws:logs:us-west-2:${AWS::AccountId}:log-group:/aws/codebuild/${GenericName}-codebuild-project:*'
+            - !Sub 'arn:aws:logs:us-west-2:${AWS::AccountId}:log-group:/aws/codebuild/${Namespace}-codebuild-project'
+            - !Sub 'arn:aws:logs:us-west-2:${AWS::AccountId}:log-group:/aws/codebuild/${Namespace}-codebuild-project:*'
           - Effect: 'Allow'
             Action:
             - s3:PutObject
@@ -109,15 +105,15 @@ Resources:
             - codebuild:BatchPutTestCases
             - codebuild:BatchPutCodeCoverages
             Resource:
-            - !Sub 'arn:aws:codebuild:us-west-2:${AWS::AccountId}:report-group/${GenericName}-codebuild-project-*'
+            - !Sub 'arn:aws:codebuild:us-west-2:${AWS::AccountId}:report-group/${Namespace}-codebuild-project-*'
       RoleName:
         Ref: IAMCodeBuildRole
 
   CodeBuild:  # Create the Codebuild project
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: '{{sceptre_user_data.genericName}}-codebuild-project'
-      Description: '{{sceptre_user_data.genericName}}-codebuild-project'
+      Name: !Sub "${Namespace}-codebuild-project"
+      Description: !Sub "${Namespace}-codebuild-project"
       QueuedTimeoutInMinutes: 5
       Artifacts:
         Type: 'NO_ARTIFACTS'
@@ -138,7 +134,7 @@ Resources:
             Value: !Ref ECSTaskName
       LogsConfig:
         CloudWatchLogs:
-          GroupName: '/aws/codebuild/{{sceptre_user_data.genericName}}-codebuild-project'
+          GroupName: !Sub '/aws/codebuild/${Namespace}-codebuild-project'
           Status: ENABLED
       ServiceRole:
         Ref: IAMCodeBuildRole
@@ -159,12 +155,12 @@ Resources:
                 - codepipeline.amazonaws.com
             Action:
               - 'sts:AssumeRole'
-      RoleName: {{sceptre_user_data.genericName}}-codepipeline
+      RoleName: !Sub "${Namespace}-codepipeline"
 
-  IAMCodePipeLinePolicy: # IAM policy for {{sceptre_user_data.genericName}}-codepipeline IAM role.
+  IAMCodePipeLinePolicy: # IAM policy for {Namespace}-codepipeline IAM role.
     Type: AWS::IAM::RolePolicy
     Properties:
-      PolicyName: {{sceptre_user_data.genericName}}-codepipeline-policy
+      PolicyName: !Sub "${Namespace}-codepipeline-policy"
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -307,7 +303,7 @@ Resources:
   CodePipeLine:  # Create Codepipeline.
     Type: AWS::CodePipeline::Pipeline
     Properties:
-      Name: '{{sceptre_user_data.genericName}}-pipeline'
+      Name: !Sub "${Namespace}-pipeline"
       RoleArn:
         Fn::GetAtt:
         - IAMCodePipeLineRole
@@ -326,7 +322,7 @@ Resources:
                 Version: '1'
               Configuration:
                 ConnectionArn: !Ref codeStarConnection
-                FullRepositoryId: 'escholarship/{{sceptre_user_data.genericName}}'
+                FullRepositoryId: "escholarship/escholapi"
                 BranchName: !Ref Branch
               OutputArtifacts:
                 - Name: SourceArtifact
@@ -373,26 +369,26 @@ Resources:
                 - scheduler.amazonaws.com
             Action:
               - 'sts:AssumeRole'
-      RoleName: {{sceptre_user_data.genericName}}-rebuild
+      RoleName: !Sub "${Namespace}-rebuild"
 
   IAMEventBridgePolicy: # IAM policy.
     Type: AWS::IAM::RolePolicy
     Properties:
-      PolicyName: {{sceptre_user_data.genericName}}-rebuild-policy
+      PolicyName: !Sub "${Namespace}-rebuild-policy"
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
           - Effect: 'Allow'
             Action:
             - 'codepipeline:StartPipelineExecution'
-            Resource: !Sub "arn:aws:codepipeline:us-west-2:${AWS::AccountId}:${GenericName}-pipeline"
+            Resource: !Sub "arn:aws:codepipeline:us-west-2:${AWS::AccountId}:${Namespace}-pipeline"
       RoleName:
         Ref: IAMEventBridgeRole
 
   EventBridgeScheduler:  # Runs the codepipeline for patching.
     Type: AWS::Scheduler::Schedule
     Properties:
-      Name: '{{sceptre_user_data.genericName}}-rebuild'
+      Name: !Sub "${Namespace}-rebuild"
       Description: "This will invoke AWScodepipeline of the container build/deployment. We're doing this to make sure the container image is always updated with the latest patching as well as make sure there is nothing stale in the running container."
       FlexibleTimeWindow:
         Mode: 'FLEXIBLE'

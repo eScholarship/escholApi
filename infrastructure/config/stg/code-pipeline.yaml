@@ -10,7 +10,3 @@ parameters:
   ECSClusterName: pad-escholapi-stg-cluster
   ECSServiceName: pad-escholapi-stg-Service
   ECSTaskName: pad-escholapi-stg-TaskDef
-  GenericName: escholApi
-sceptre_user_data:
-  serviceName: escholApi-stg
-  genericName: escholApi
