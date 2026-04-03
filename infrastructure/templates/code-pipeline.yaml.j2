@@ -24,7 +24,11 @@ Parameters:
 
   ECSServiceName:
     Type: String
-    Description: "ECS Service name to force deploy"
+    Description: "ECS Service name to deploy"
+
+  ECSTaskName:
+    Type: String
+    Description: "ECS Task name for buildspec"
 
   codeStarConnection:
     Type: AWS::SSM::Parameter::Value<String>
@@ -130,6 +134,8 @@ Resources:
         EnvironmentVariables:
           - Name: AWS_ACCOUNT_ID
             Value: !Ref "AWS::AccountId"
+          - Name: TargetECSTask
+            Value: !Ref ECSTaskName
       LogsConfig:
         CloudWatchLogs:
           GroupName: '/aws/codebuild/{{sceptre_user_data.genericName}}-codebuild-project'
