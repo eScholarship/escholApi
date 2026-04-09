@@ -34,6 +34,11 @@ Parameters:
     Type: AWS::SSM::Parameter::Value<String>
     Default: "/codepipeline/codeconnection/arn"
 
+  WeeklyCronExpression:
+    Type: String
+    Default: "cron(0 11 ? * 4 *)"
+    Description: "Cron expression for weekly rebuild schedule (UTC)"
+
 Resources:
   ########################################
   # Artifacts bucket
@@ -172,20 +177,8 @@ Resources:
             Condition:
               StringEqualsIfExists:
                 iam:PassedToService:
-                - cloudformation.amazonaws.com
-                - elasticbeanstalk.amazonaws.com
-                - ec2.amazonaws.com
+                - codebuild.amazonaws.com
                 - ecs-tasks.amazonaws.com
-          - Effect: 'Allow'
-            Action:
-            - codecommit:CancelUploadArchive
-            - codecommit:GetBranch
-            - codecommit:GetCommit
-            - codecommit:GetRepository
-            - codecommit:GetUploadArchiveStatus
-            - codecommit:UploadArchive
-            Resource:
-            - '*'
           - Effect: 'Allow'
             Action:
             - codedeploy:CreateDeployment
@@ -203,35 +196,8 @@ Resources:
             - '*'
           - Effect: 'Allow'
             Action:
-            - elasticbeanstalk:*
-            - ec2:*
-            - elasticloadbalancing:*
-            - autoscaling:*
-            - cloudwatch:*
             - s3:*
-            - sns:*
-            - cloudformation:*
-            - rds:*
-            - sqs:*
             - ecs:*
-            Resource:
-            - '*'
-          - Effect: 'Allow'
-            Action:
-            - lambda:InvokeFunction
-            - lambda:ListFunctions
-            Resource:
-            - '*'
-          - Effect: 'Allow'
-            Action:
-            - opsworks:CreateDeployment
-            - opsworks:DescribeApps
-            - opsworks:DescribeCommands
-            - opsworks:DescribeDeployments
-            - opsworks:DescribeInstances
-            - opsworks:DescribeStacks
-            - opsworks:UpdateApp
-            - opsworks:UpdateStack
             Resource:
             - '*'
           - Effect: 'Allow'
@@ -242,36 +208,9 @@ Resources:
             - codebuild:StartBuildBatch
             Resource:
             - '*'
-          - Effect: Allow
-            Action:
-            - servicecatalog:ListProvisioningArtifacts
-            - servicecatalog:CreateProvisioningArtifact
-            - servicecatalog:DescribeProvisioningArtifact
-            - servicecatalog:DeleteProvisioningArtifact
-            - servicecatalog:UpdateProduct
-            Resource: '*'
-          - Effect: 'Allow'
-            Action:
-            - cloudformation:ValidateTemplate
-            Resource:
-            - '*'
           - Effect: 'Allow'
             Action:
             - ecr:DescribeImages
-            Resource:
-            - '*'
-          - Effect: 'Allow'
-            Action:
-            - states:DescribeExecution
-            - states:DescribeStageMachine
-            - states:StartExecution
-            Resource:
-            - '*'
-          - Effect: 'Allow'
-            Action:
-            - appconfig:StartDeployment
-            - appconfig:StopDeployment
-            - appconfig:GetDeployment
             Resource:
             - '*'
       RoleName:
@@ -370,7 +309,7 @@ Resources:
       FlexibleTimeWindow:
         Mode: 'FLEXIBLE'
         MaximumWindowInMinutes: 1
-      ScheduleExpression: cron(0 11 ? * 4 *)  # This is in UTC.
+      ScheduleExpression: !Ref WeeklyCronExpression
       State: ENABLED
       Target:
         Arn:

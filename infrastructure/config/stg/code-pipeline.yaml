@@ -10,3 +10,4 @@ parameters:
   ECSClusterName: pad-escholapi-stg-cluster
   ECSServiceName: pad-escholapi-stg-Service
   ECSTaskName: pad-escholapi-stg-TaskDef
+  WeeklyCronExpression: "cron(0 11 ? * 4 *)"
