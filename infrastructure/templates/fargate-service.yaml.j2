@@ -30,6 +30,94 @@ Resources:
     Type: AWS::ECR::Repository
     Properties:
       RepositoryName: {{funcname}}
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Expire untagged images after 7 day",
+                "selection": {
+                  "tagStatus": "untagged",
+                  "countType": "sinceImagePushed",
+                  "countUnit": "days",
+                  "countNumber": 7
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+  # ---------------------------------------------------------
+  # IAM Role for Application Auto Scaling
+  # ---------------------------------------------------------
+  AppAutoScalingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: application-autoscaling.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ECSServiceAutoScaling
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecs:UpdateService
+                  - ecs:DescribeServices
+                Resource: "*"
+
+  # ---------------------------------------------------------
+  # Scalable Target (defines min/max tasks)
+  # ---------------------------------------------------------
+  ServiceAutoScalingTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MaxCapacity: 5
+      MinCapacity: 1
+      ResourceId: service/{{funcname}}-cluster/{{funcname}}-Service 
+      RoleARN: !GetAtt AppAutoScalingRole.Arn
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+
+  # ---------------------------------------------------------
+  # Scaling Policy (CPU-based)
+  # ---------------------------------------------------------
+  CPUScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: CPUScalingPolicy
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref ServiceAutoScalingTarget
+      TargetTrackingScalingPolicyConfiguration:
+        TargetValue: 70   # target 70% CPU
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        ScaleInCooldown: 60
+        ScaleOutCooldown: 60
+
+  # ---------------------------------------------------------
+  # Scaling Policy (Memory-based)
+  # ---------------------------------------------------------
+  MemoryScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: MemoryScalingPolicy
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref ServiceAutoScalingTarget
+      TargetTrackingScalingPolicyConfiguration:
+        TargetValue: 75   # target 75% memory
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageMemoryUtilization
+        ScaleInCooldown: 60
+        ScaleOutCooldown: 60
+
 
   # We'll run the task in this Fargate cluster
   Cluster:
@@ -320,8 +408,7 @@ Resources:
       # "internal" is also an option
       Scheme: internet-facing
       SecurityGroups:
-        - sg-ac724bdd # cdl-pub-standardsg-stack-standardsg-19KQJPZ2LI0EB
-        - sg-03ce91dae9aab76aa # cdl-pub-httpsg-stack-httpanysg-pJMFIyClC4Wa
+        - sg-0e2dc493a6a19fb8b # HTTPS from CloudFront/UCOP/VPN
       Subnets:
         - subnet-3ae8a860  # uc-west-2c
         - subnet-fce472b7  # uc-west-2a

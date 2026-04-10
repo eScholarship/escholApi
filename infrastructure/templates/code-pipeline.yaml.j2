@@ -1,0 +1,318 @@
+Description: "Pipeline with a source stage that pulls from GitHub repo, build stage that builds Docker image, and deploy stage that deploys to ECS"
+
+Parameters:
+  GitHubRepo:
+    Type: String
+    Description: "Public GitHub repository URL (e.g. https://github.com/user/repo)"
+
+  Namespace:
+    Type: String
+    Description: "Namespace or project name"
+
+  Branch:
+    Type: String
+    Default: main
+    Description: "GitHub branch to build from"
+
+  ECRRepo:
+    Type: String
+    Description: "Existing ECR repository name"
+
+  ECSClusterName:
+    Type: String
+    Description: "ECS Cluster name"
+
+  ECSServiceName:
+    Type: String
+    Description: "ECS Service name to deploy"
+
+  ECSTaskName:
+    Type: String
+    Description: "ECS Task name for buildspec"
+
+  codeStarConnection:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: "/codepipeline/codeconnection/arn"
+
+  WeeklyCronExpression:
+    Type: String
+    Default: "cron(0 11 ? * 4 *)"
+    Description: "Cron expression for weekly rebuild schedule (UTC)"
+
+Resources:
+  ########################################
+  # Artifacts bucket
+  ########################################
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${Namespace}-pipeline-artifacts"
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldArtifacts
+            Status: Enabled
+            ExpirationInDays: 7
+            Prefix: ""   # Applies to all objects
+
+
+
+  ########################################
+  # IAM Roles
+  ########################################
+
+  ## Code Build Stuff ##
+  IAMCodeBuildRole:  # IAM role with embedded assume role and IAM policy attached.
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:  # Assume Role Policy Document.
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codebuild.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser  ## Managed policy used for ECR.
+      RoleName: !Sub "${Namespace}-codebuild"
+
+  IAMCodeBuildPolicy: ## IAM policy for {Namespace}-codebuild IAM role.
+    Type: AWS::IAM::RolePolicy
+    Properties:
+      PolicyName: !Sub "${Namespace}-codebuild-policy"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Action:
+            - 'logs:CreateLogGroup'
+            - 'logs:CreateLogStream'
+            - 'logs:PutLogEvents'
+            Resource:
+            - !Sub 'arn:aws:logs:us-west-2:${AWS::AccountId}:log-group:/aws/codebuild/${Namespace}-codebuild-project'
+            - !Sub 'arn:aws:logs:us-west-2:${AWS::AccountId}:log-group:/aws/codebuild/${Namespace}-codebuild-project:*'
+          - Effect: 'Allow'
+            Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:GetObjectVersion
+            - s3:GetBucketAcl
+            - s3:GetBucketLocation
+            Resource:
+            - !GetAtt ArtifactBucket.Arn
+            - !Sub "${ArtifactBucket.Arn}/*"
+          - Effect: 'Allow'
+            Action:
+            - codebuild:CreateReportGroup
+            - codebuild:CreateReport
+            - codebuild:UpdateReport
+            - codebuild:BatchPutTestCases
+            - codebuild:BatchPutCodeCoverages
+            Resource:
+            - !Sub 'arn:aws:codebuild:us-west-2:${AWS::AccountId}:report-group/${Namespace}-codebuild-project-*'
+      RoleName:
+        Ref: IAMCodeBuildRole
+
+  CodeBuild:  # Create the Codebuild project
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub "${Namespace}-codebuild-project"
+      Description: !Sub "${Namespace}-codebuild-project"
+      QueuedTimeoutInMinutes: 5
+      Artifacts:
+        Type: 'NO_ARTIFACTS'
+      ConcurrentBuildLimit: 1
+      Cache:
+        Type: S3
+        Location: !Ref ArtifactBucket
+      Environment:
+        ComputeType: 'BUILD_GENERAL1_SMALL'
+        Image: 'aws/codebuild/standard:7.0'  # This is Ubuntu 22.04. https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-available.html
+        ImagePullCredentialsType: 'CODEBUILD'
+        PrivilegedMode: true  # This enables docker daemon to run in the container; basically this container is building a container inside of it.
+        Type: 'LINUX_CONTAINER'
+        EnvironmentVariables:
+          - Name: AWS_ACCOUNT_ID
+            Value: !Ref "AWS::AccountId"
+          - Name: TargetECSTask
+            Value: !Ref ECSTaskName
+      LogsConfig:
+        CloudWatchLogs:
+          GroupName: !Sub '/aws/codebuild/${Namespace}-codebuild-project'
+          Status: ENABLED
+      ServiceRole:
+        Ref: IAMCodeBuildRole
+      Source:
+        Type: 'GITHUB'
+        Location: !Ref GitHubRepo
+
+  ## Code Pipe Line Stuff ##
+  IAMCodePipeLineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:  # Assume Role Policy Document.
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codepipeline.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      RoleName: !Sub "${Namespace}-codepipeline"
+
+  IAMCodePipeLinePolicy: # IAM policy for {Namespace}-codepipeline IAM role.
+    Type: AWS::IAM::RolePolicy
+    Properties:
+      PolicyName: !Sub "${Namespace}-codepipeline-policy"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Action:
+            - iam:PassRole
+            Resource:
+            - '*'
+            Condition:
+              StringEqualsIfExists:
+                iam:PassedToService:
+                - codebuild.amazonaws.com
+                - ecs-tasks.amazonaws.com
+          - Effect: 'Allow'
+            Action:
+            - codedeploy:CreateDeployment
+            - codedeploy:GetApplication
+            - codedeploy:GetApplicationRevision
+            - codedeploy:GetDeployment
+            - codedeploy:GetDeploymentConfig
+            - codedeploy:RegisterApplicationRevision
+            Resource:
+            - '*'
+          - Effect: 'Allow'
+            Action:
+            - codestar-connections:UseConnection
+            Resource:
+            - '*'
+          - Effect: 'Allow'
+            Action:
+            - s3:*
+            - ecs:*
+            Resource:
+            - '*'
+          - Effect: 'Allow'
+            Action:
+            - codebuild:BatchGetBuilds
+            - codebuild:StartBuild
+            - codebuild:BatchGetBuildBatches
+            - codebuild:StartBuildBatch
+            Resource:
+            - '*'
+          - Effect: 'Allow'
+            Action:
+            - ecr:DescribeImages
+            Resource:
+            - '*'
+      RoleName:
+        Ref: IAMCodePipeLineRole
+
+  CodePipeLine:  # Create Codepipeline.
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: !Sub "${Namespace}-pipeline"
+      RoleArn:
+        Fn::GetAtt:
+        - IAMCodePipeLineRole
+        - Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref ArtifactBucket
+      Stages:
+        - Name: 'Source'  # First phase is to source from Github. https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference-CodestarConnectionSource.html
+          Actions:
+            - Name: 'Source'
+              ActionTypeId:
+                Category: Source
+                Owner: 'AWS'
+                Provider: 'CodeStarSourceConnection'
+                Version: '1'
+              Configuration:
+                ConnectionArn: !Ref codeStarConnection
+                FullRepositoryId: "escholarship/escholapi"
+                BranchName: !Ref Branch
+              OutputArtifacts:
+                - Name: SourceArtifact
+        - Name: 'Build'  # Second phase is to Build from Source. https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference-CodeBuild.html
+          Actions:
+            - Name: 'Build'
+              InputArtifacts:
+              - Name: SourceArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: 'AWS'
+                Provider: 'CodeBuild'
+                Version: '1'
+              Configuration:
+                ProjectName:
+                  Ref: CodeBuild
+              OutputArtifacts:
+                - Name: BuildArtifact
+        - Name: 'Deploy'  # Third phase is to Deploy from Build. https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference-ECS.html
+          Actions:
+            - Name: 'Deploy'
+              InputArtifacts:
+              - Name: BuildArtifact
+              ActionTypeId:
+                Category: Deploy
+                Owner: 'AWS'
+                Provider: 'ECS'
+                Version: '1'
+              Configuration:
+                ClusterName: !Ref ECSClusterName
+                ServiceName: !Ref ECSServiceName
+                DeploymentTimeout: '15'
+
+  ## EventBridge Stuff ##
+  IAMEventBridgeRole:  # IAM role with embedded assume role and IAM policy attached.
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:  # Assume Role Policy Document.
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - scheduler.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      RoleName: !Sub "${Namespace}-rebuild"
+
+  IAMEventBridgePolicy: # IAM policy.
+    Type: AWS::IAM::RolePolicy
+    Properties:
+      PolicyName: !Sub "${Namespace}-rebuild-policy"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Action:
+            - 'codepipeline:StartPipelineExecution'
+            Resource: !Sub "arn:aws:codepipeline:us-west-2:${AWS::AccountId}:${Namespace}-pipeline"
+      RoleName:
+        Ref: IAMEventBridgeRole
+
+  EventBridgeScheduler:  # Runs the codepipeline for patching.
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: !Sub "${Namespace}-rebuild"
+      Description: "This will invoke AWScodepipeline of the container build/deployment. We're doing this to make sure the container image is always updated with the latest patching as well as make sure there is nothing stale in the running container."
+      FlexibleTimeWindow:
+        Mode: 'FLEXIBLE'
+        MaximumWindowInMinutes: 1
+      ScheduleExpression: !Ref WeeklyCronExpression
+      State: ENABLED
+      Target:
+        Arn:
+          !Sub "arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${CodePipeLine}"  # "Fn::GetAtt:" is not supported with CodePipeLine; whack!
+        RoleArn:
+          !GetAtt IAMEventBridgeRole.Arn

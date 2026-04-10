@@ -1,0 +1,13 @@
+template:
+  type: file
+  path: code-pipeline.yaml.j2
+stack_name: pad-escholapi-pipeline-stg
+parameters:
+  GitHubRepo: https://github.com/eScholarship/escholApi
+  Namespace: pad-escholapi-stg
+  Branch: codebuild
+  ECRRepo: pad-escholapi-stg
+  ECSClusterName: pad-escholapi-stg-cluster
+  ECSServiceName: pad-escholapi-stg-Service
+  ECSTaskName: pad-escholapi-stg-TaskDef
+  WeeklyCronExpression: "cron(0 11 ? * 4 *)"
