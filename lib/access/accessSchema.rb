@@ -1026,7 +1026,7 @@ class ItemsData
     when "UPDATED_DESC"
       query = query.from(Sequel.lit("`items` FORCE INDEX(items_updated_id_desc_index)"))
     when "ADDED_ASC", "ADDED_DESC"
-      query = query.from(Sequel.lit("`items` FORCE INDEX(items_status_added_id_index)"))
+      query = query.from(Sequel.lit("`items` FORCE INDEX(items_status_added_id_index, items_eschol_date_index)"))
     end
 
     # Apply limits as specified
