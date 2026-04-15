@@ -6,18 +6,30 @@ phases:
       - echo Logging in to Amazon ECR...
       - aws --version
       - aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.us-west-2.amazonaws.com
-      - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.us-west-2.amazonaws.com/pad-escholapi-prd
+      # Extract the first 7 characters of the commit hash
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      # Generate a build date tag (YYYYMMDD-HHMMSS)
+      - BUILD_DATE=$(date -u +"%Y%m%d-%H%M%S")
+      # Combine them into a single image tag
+      - IMAGE_TAG="${COMMIT_HASH}-${BUILD_DATE}"
+      - echo "Image tag: $IMAGE_TAG"
   build:
     commands:
       - echo Build started on `date`
       - echo Building the Docker image...
       - docker build -t $REPOSITORY_URI:latest .
+      # Tag with commit+date
+      - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
+
+      
   post_build:
     commands:
       - echo Build completed on `date`
       - echo Pushing the Docker images...
       - docker push $REPOSITORY_URI:latest
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
+      - echo "Pushed tags: latest and $IMAGE_TAG"
       - echo Writing image definitions file...
-      - printf '[{"name":"%s","imageUri":"%s"}]' "$TargetECSTask" "$REPOSITORY_URI:latest" > imagedefinitions.json
+      - printf '[{"name":"%s","imageUri":"%s"}]' "$TargetECSTask" "$REPOSITORY_URI:$IMAGE_TAG" > imagedefinitions.json
 artifacts:
   files: imagedefinitions.json
