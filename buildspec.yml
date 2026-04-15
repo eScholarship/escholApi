@@ -9,7 +9,8 @@ phases:
       # COMMIT_HASH="${CODEBUILD_RESOLVED_SOURCE_VERSION:0:7}"
       - COMMIT_HASH="abcd"
       - BUILD_DATE=$(date -u +%Y%m%d-%H%M%S)
-      - IMAGE_TAG="${COMMIT_HASH}-${BUILD_DATE}"
+      # IMAGE_TAG="${COMMIT_HASH}-${BUILD_DATE}"
+      - IMAGE_TAG="wdfg"
       - echo "Image tag: $IMAGE_TAG"
   build:
     commands:
