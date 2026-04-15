@@ -6,7 +6,8 @@ phases:
       - echo Logging in to Amazon ECR...
       - aws --version
       - aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.us-west-2.amazonaws.com
-      - COMMIT_HASH="${CODEBUILD_RESOLVED_SOURCE_VERSION:0:7}"
+      # COMMIT_HASH="${CODEBUILD_RESOLVED_SOURCE_VERSION:0:7}"
+      - COMMIT_HASH="abcd"
       - BUILD_DATE=$(date -u +%Y%m%d-%H%M%S)
       - IMAGE_TAG="${COMMIT_HASH}-${BUILD_DATE}"
       - echo "Image tag: $IMAGE_TAG"
