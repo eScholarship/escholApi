@@ -47,6 +47,17 @@ Resources:
                 "action": {
                   "type": "expire"
                 }
+              },
+              {
+                "rulePriority": 2,
+                "description": "Keep only the last 5 tagged images",
+                "selection": {
+                  "tagStatus": "tagged",
+                  "tagPatternList": ["*-*"],
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 5
+                },
+                "action": { "type": "expire" }
               }
             ]
           }

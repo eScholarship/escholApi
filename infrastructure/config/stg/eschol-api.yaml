@@ -8,6 +8,5 @@ parameters:
   Dbuser: escholrw
   Escholurl: 'http://pub-jschol2-stg.escholarship.org'
   Submitserver: 'pub-submit3-stg.escholarship.org'
-  Hostedzone: Z0785260HHGAOA7BOZL6
 sceptre_user_data:
   environment: stg
