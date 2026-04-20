@@ -1,2 +1,9 @@
 project_code: pad-escholapi
 region: us-west-2
+stack_tags:
+  Program: 'pad'
+  Team: 'pub'
+  Service: 'escholarship'
+  Component: 'api'
+  CodeRepo: 'https://github.com/escholarship/escholApi'
+stack_tags_inheritance: merge
