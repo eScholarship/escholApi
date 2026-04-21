@@ -20,8 +20,9 @@ Parameters:
     Type: String
   Submitserver: 
     Type: String
-  Hostedzone: 
-    Type: String
+  Hostedzone:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: "/escholAPI/hostedzone"
 
 Resources:
 
@@ -46,6 +47,17 @@ Resources:
                 "action": {
                   "type": "expire"
                 }
+              },
+              {
+                "rulePriority": 2,
+                "description": "Keep only the last 5 tagged images",
+                "selection": {
+                  "tagStatus": "tagged",
+                  "tagPatternList": ["*-*"],
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 5
+                },
+                "action": { "type": "expire" }
               }
             ]
           }
@@ -420,10 +432,3 @@ Resources:
         - Key: Environment
           Value: {{ sceptre_user_data.environment }}
 
-{% if sceptre_user_data.environment == 'prd' %}
-  WafAssociation:
-    Type: AWS::WAFv2::WebACLAssociation
-    Properties:
-      ResourceArn: !Ref LoadBalancer
-      WebACLArn: {{ sceptre_user_data.waf }}
-{% endif %} # if sceptre_user_data.environment == 'prd' %}

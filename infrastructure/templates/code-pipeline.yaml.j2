@@ -135,6 +135,8 @@ Resources:
         EnvironmentVariables:
           - Name: AWS_ACCOUNT_ID
             Value: !Ref "AWS::AccountId"
+          - Name: REPOSITORY_URI
+            Value: !Sub '${AWS::AccountId}.dkr.ecr.us-west-2.amazonaws.com/${Namespace}'
           - Name: TargetECSTask
             Value: !Ref ECSTaskName
       LogsConfig:

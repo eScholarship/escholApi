@@ -1,0 +1,13 @@
+template:
+  type: file
+  path: code-pipeline.yaml.j2
+stack_name: pad-escholapi-pipeline-prd
+parameters:
+  GitHubRepo: https://github.com/eScholarship/escholApi
+  Namespace: pad-escholapi-prd
+  Branch: farprd
+  ECRRepo: pad-escholapi-prd
+  ECSClusterName: pad-escholapi-prd-cluster
+  ECSServiceName: pad-escholapi-prd-Service
+  ECSTaskName: pad-escholapi-prd-TaskDef
+  WeeklyCronExpression: "cron(0 11 ? * 4 *)"
