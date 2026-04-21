@@ -5,7 +5,7 @@ stack_name: pad-escholapi-pipeline-prd
 parameters:
   GitHubRepo: https://github.com/eScholarship/escholApi
   Namespace: pad-escholapi-prd
-  Branch: farprd
+  Branch: prd
   ECRRepo: pad-escholapi-prd
   ECSClusterName: pad-escholapi-prd-cluster
   ECSServiceName: pad-escholapi-prd-Service
