@@ -18,7 +18,7 @@ require_relative "./lib/xmlutil.rb"
 require_relative "./lib/escholAPI.rb"
 
 # Log database queries while debugging
-DB.loggers << Logger.new(STDOUT)
+# DB.loggers << Logger.new(STDOUT)
 
 # Go for it
 run EscholAPI
