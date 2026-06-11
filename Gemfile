@@ -4,15 +4,18 @@ source 'https://rubygems.org/'
 gem 'sinatra', '>= 2.0.2'
 gem 'sinatra-contrib', '>= 2.0.2'
 
+# Force Rack 2.x (Rack 3 breaks older middleware + GraphQL 2.x)
+gem "rack", "~> 2.2"
+
 # Database Stack
 gem 'sequel'
-gem 'puma','=4.3.12'
+gem 'puma','~>7.0'
 gem 'colorize'
 gem 'rack-protection'
 gem 'mysql2'
 
 # Graphql
-gem 'graphql','>=2.4.8'
+gem 'graphql','~>2.0'
 gem 'graphql-batch'
 gem 'json'
 
@@ -35,6 +38,11 @@ gem 'unindent'
 gem 'xml-simple'
 gem 'ed25519'
 gem 'bcrypt_pbkdf'
+
+# need to explicity add these for Ruby 3.4 onwards
+gem "bigdecimal"
+gem "ostruct"
+gem "csv"
 
 group :development do
   gem 'ffi', '>= 1.9.25'
