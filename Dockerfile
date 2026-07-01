@@ -64,8 +64,7 @@ RUN apt-get update -qq && apt-get install -y \
   libxslt1.1 \
   zlib1g \
   libffi8 \
-  libmariadb-dev \
-  curl && \
+  libmariadb-dev && \
   apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /vendor/bundle
