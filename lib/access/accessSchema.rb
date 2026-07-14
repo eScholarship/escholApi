@@ -1,6 +1,7 @@
 require 'base64'
 require 'json'
 require 'unindent'
+require 'time'
 
 ###################################################################################################
 # For batching
@@ -1065,8 +1066,11 @@ class ItemsData
     # starting just after the end of the last page)
     if args[:lastID]
       dir = ascending ? '>' : '<'
+      # Remove timezone from the date to match the format in DB
+      parsed_time = Time.parse(args[:lastDate])
+      lastdate = parsed_time.strftime('%Y-%m-%d %H:%M:%S')
       query = query.where(Sequel.lit("#{field} #{dir} ? or (#{field} = ? and id #{dir} ?)",
-                                     args[:lastDate], args[:lastDate], args[:lastID]))
+                                     lastdate, lastdate, args[:lastID]))
     end
 
     @query = query
