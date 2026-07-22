@@ -283,7 +283,7 @@ Resources:
       Cpu: !Ref Cpu
       Memory: !Ref Memory
       EphemeralStorage:
-        SizeInGiB: 101   # 100 GB disk
+        SizeInGiB: 21   # 20 GB disk
       ExecutionRoleArn: !GetAtt ExecRole.Arn
       Family: {{funcname}}-TaskDef
       NetworkMode: awsvpc
