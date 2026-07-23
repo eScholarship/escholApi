@@ -3,8 +3,8 @@ template:
   path: fargate-service.yaml.j2
 stack_name: pad-eschol-api-prd
 parameters:
-  Cpu: 2048
-  Memory: 16384
+  Cpu: 1024
+  Memory: 8192
   Dbuser: escholdba
   Escholurl: 'https://escholarship.org'
   Submitserver: 'pub-submit3-prd.escholarship.org'

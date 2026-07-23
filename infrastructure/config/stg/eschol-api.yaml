@@ -3,8 +3,8 @@ template:
   path: fargate-service.yaml.j2
 stack_name: pad-eschol-api-stg
 parameters:
-  Cpu: 2048
-  Memory: 16384
+  Cpu: 256
+  Memory: 1024
   Dbuser: escholrw
   Escholurl: 'http://pub-jschol2-stg.escholarship.org'
   Submitserver: 'pub-submit3-stg.escholarship.org'
